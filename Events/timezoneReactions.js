@@ -56,13 +56,19 @@ module.exports = (client) => {
                     const panelMsg = await panelChannel.messages.fetch(row.id).catch(() => null);
                     if (!panelMsg) continue;
 
-                    for (const oldEmoji of timezoneEmojis) {
-                        if (oldEmoji === emoji) continue; // Don't remove the new one
+                    // Ensure all current reactions for this user are cleared from every other panel message.
+                    // This also removes the same timezone emoji on a different panel, which is required
+                    // when the user is switching between multiple timezone panels.
+                    for (const reactionObj of panelMsg.reactions.cache.values()) {
+                        const isCurrentReaction =
+                            panelMsg.id === message.id &&
+                            reactionObj.emoji.name === emoji;
 
-                        const reactionObj = panelMsg.reactions.cache.get(oldEmoji);
-                        if (!reactionObj) continue;
+                        if (isCurrentReaction) continue;
 
-                        await reactionObj.users.remove(user.id).catch(() => {});
+                        if (reactionObj.users.cache.has(user.id)) {
+                            await reactionObj.users.remove(user.id).catch(() => {});
+                        }
                     }
                 } catch {
                     // Ignore failures on old messages
