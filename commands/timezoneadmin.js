@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, MessageFlags } = require("discord.js");
+const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } = require("discord.js");
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -63,13 +63,18 @@ module.exports = {
         const allowedUserIds = rows.filter(r => r.role_id.startsWith("user:")).map(r => r.role_id.replace("user:", ""));
 
         const member = interaction.member;
+        const isDefaultAdmin =
+            interaction.guild.ownerId === member.id ||
+            member.permissions?.has(PermissionFlagsBits.Administrator);
+
         const userIsAllowed =
+            isDefaultAdmin ||
             allowedUserIds.includes(member.id) ||
             member.roles.cache.some(role => allowedRoleIds.includes(role.id));
 
         if (!userIsAllowed) {
             return interaction.reply({
-                content: "❌ You are not allowed to run timezone admin commands.",
+                content: "❌ You are not allowed to run timezone admin commands. Server owners and users with the Administrator permission can manage these settings by default.",
                 flags: MessageFlags.Ephemeral
             });
         }

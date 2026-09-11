@@ -72,7 +72,12 @@ module.exports = {
         .map(r => r.role_id.replace("user:", ""));
 
       const member = interaction.member;
+      const isBootstrapAdmin =
+        interaction.guild.ownerId === member.id ||
+        member.permissions?.has(PermissionFlagsBits.Administrator);
+
       const userIsAllowed =
+        isBootstrapAdmin ||
         allowedUserIds.includes(member.id) ||
         member.roles.cache.some(role => allowedRoleIds.includes(role.id));
 
