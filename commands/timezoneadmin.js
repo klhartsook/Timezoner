@@ -4,6 +4,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName("timezoneadmin")
         .setDescription("Manage who can run timezone setup commands.")
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addSubcommand(sub =>
             sub
                 .setName("addrole")

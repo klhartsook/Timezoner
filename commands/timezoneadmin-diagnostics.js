@@ -5,6 +5,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName("timezoneadmin-diagnostics")
         .setDescription("Shows a full self-diagnostic report for the timezone system.")
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addChannelOption(option =>
             option
                 .setName("channel")
