@@ -50,8 +50,6 @@ const db = new sqlite3.Database(dbPath);
 
 // Create tables if they don't exist
 db.run("CREATE TABLE IF NOT EXISTS timezones (user TEXT PRIMARY KEY, tz TEXT)");
-db.run("CREATE TABLE IF NOT EXISTS allowed_roles (role_id TEXT PRIMARY KEY)");
-db.run("CREATE TABLE IF NOT EXISTS timezone_message (id TEXT, channel TEXT)");
 
 client.db = db;
 
