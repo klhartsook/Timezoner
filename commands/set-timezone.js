@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, MessageFlags } = require("discord.js");
+const moment = require("moment-timezone");
 const { timezoneData } = require("../timezone-definitions");
 
 const timezones = Object.values(timezoneData);
@@ -8,7 +9,8 @@ function findTimezone(value) {
   return timezones.find(tz =>
     tz.offset.toLowerCase() === normalized ||
     tz.label.toLowerCase() === normalized ||
-    tz.iana.toLowerCase() === normalized
+    tz.iana.toLowerCase() === normalized ||
+    tz.aliases?.some(alias => alias.toLowerCase() === normalized)
   );
 }
 
@@ -28,11 +30,13 @@ module.exports = {
     const query = interaction.options.getString("timezone", true).toLowerCase();
     const matches = timezones
       .filter(tz =>
-        `${tz.offset} ${tz.label} ${tz.iana}`.toLowerCase().includes(query)
+        `${tz.offset} ${tz.label} ${tz.iana} ${(tz.aliases || []).join(" ")}`
+          .toLowerCase()
+          .includes(query)
       )
       .slice(0, 25)
       .map(tz => ({
-        name: `${tz.offset} - ${tz.label}`,
+        name: `${moment().tz(tz.iana).format("h:mm A")} - ${tz.offset}`,
         value: tz.offset
       }));
 

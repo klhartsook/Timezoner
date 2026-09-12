@@ -28,7 +28,7 @@ const timezoneData = {
   "5️⃣": { offset: "UTC-1", label: "Azores", iana: "Atlantic/Azores" },
   "6️⃣": { offset: "UTC+0", label: "London", iana: "Europe/London" },
   "7️⃣": { offset: "UTC+1", label: "Berlin", iana: "Europe/Berlin" },
-  "8️⃣": { offset: "UTC+2", label: "Cairo", iana: "Africa/Cairo" },
+  "8️⃣": { offset: "UTC+2", label: "Helsinki, Finland", iana: "Europe/Helsinki", aliases: ["Finland", "Helsinki", "Cairo", "Egypt"] },
   "9️⃣": { offset: "UTC+3", label: "Moscow", iana: "Europe/Moscow" },
   "🟦": { offset: "UTC+3:30", label: "Tehran", iana: "Asia/Tehran" },
   "🔟": { offset: "UTC+4", label: "Dubai", iana: "Asia/Dubai" },
