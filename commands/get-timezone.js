@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
+const moment = require("moment-timezone");
 const { timezoneData } = require("../timezone-definitions");
 
 const timezoneByRoleName = new Map(
@@ -45,9 +46,11 @@ module.exports = {
       });
     }
 
+    const localTime = moment().tz(timezone.iana).format("h:mm A");
+
     const embed = new EmbedBuilder()
       .setTitle(`🕒 Timezone for ${user.username}`)
-      .setDescription(`**${timezone.offset} - ${timezone.label}**`)
+      .setDescription(`**${timezone.offset} - ${timezone.label}**\nLocal time: **${localTime}**`)
       .addFields({ name: "IANA timezone", value: timezone.iana })
       .setColor("#00AEEF");
 
