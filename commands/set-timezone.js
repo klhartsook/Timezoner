@@ -1,4 +1,3 @@
-// commands/set-timezone.js
 const { SlashCommandBuilder } = require("discord.js");
 const moment = require("moment-timezone");
 const { hourList } = require("../timezone-hours");
@@ -7,18 +6,30 @@ const { regions } = require("../timezone-regions");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("set-timezone")
-    .setDescription("Set your timezone using hour → region → timezone.")
+    .setDescription("Set your timezone using AM/PM → hour → region → timezone.")
 
-    // 1️⃣ Hour selector
+    // ⭐ Step 1 — AM or PM
+    .addStringOption(option =>
+      option
+        .setName("ampm")
+        .setDescription("Pick AM or PM.")
+        .setRequired(true)
+        .addChoices(
+          { name: "AM", value: "AM" },
+          { name: "PM", value: "PM" }
+        )
+    )
+
+    // ⭐ Step 2 — Hour (filtered by AM/PM)
     .addStringOption(option =>
       option
         .setName("hour")
-        .setDescription("Pick the hour your clock is currently in (e.g., 2:xx PM).")
+        .setDescription("Pick the hour your clock is currently in.")
         .setRequired(true)
-        .addChoices(...hourList)
+        .setAutocomplete(true)
     )
 
-    // 2️⃣ Region selector
+    // ⭐ Step 3 — Region
     .addStringOption(option =>
       option
         .setName("region")
@@ -34,7 +45,7 @@ module.exports = {
         )
     )
 
-    // 3️⃣ Timezone selector (autocomplete)
+    // ⭐ Step 4 — Timezone
     .addStringOption(option =>
       option
         .setName("timezone")
@@ -44,30 +55,43 @@ module.exports = {
     ),
 
   async autocomplete(interaction) {
-    const focused = interaction.options.getFocused();
-    const hourValue = interaction.options.getString("hour");
-    const regionValue = interaction.options.getString("region");
+    const focused = interaction.options.getFocused(true);
 
-    if (!hourValue || !regionValue) {
-      return interaction.respond([]);
+    // ⭐ Hour autocomplete
+    if (focused.name === "hour") {
+      const ampm = interaction.options.getString("ampm");
+      if (!ampm) return interaction.respond([]);
+
+      const filteredHours = hourList.filter(h => h.value.endsWith(ampm));
+      return interaction.respond(filteredHours.slice(0, 25));
     }
 
-    const [hour, period] = hourValue.split("-"); // "2-PM" → ["2", "PM"]
+    // ⭐ Timezone autocomplete
+    if (focused.name === "timezone") {
+      const hourValue = interaction.options.getString("hour");
+      const regionValue = interaction.options.getString("region");
 
-    const tzList = regions[regionValue].filter(tz =>
-      tz.currentHour === hour && tz.currentPeriod === period
-    );
+      if (!hourValue || !regionValue) {
+        return interaction.respond([]);
+      }
 
-    const choices = tzList.map(tz => ({
-      name: `${tz.label} — ${tz.offset} — ${tz.currentTime}`,
-      value: tz.iana
-    }));
+      const [hour, period] = hourValue.split("-");
 
-    const filtered = choices.filter(c =>
-      c.name.toLowerCase().includes(focused.toLowerCase())
-    );
+      const tzList = regions[regionValue].filter(tz =>
+        tz.currentHour === hour && tz.currentPeriod === period
+      );
 
-    interaction.respond(filtered.slice(0, 25));
+      const choices = tzList.map(tz => ({
+        name: `${tz.label} — ${tz.offset} — ${tz.currentTime}`,
+        value: tz.iana
+      }));
+
+      const filtered = choices.filter(c =>
+        c.name.toLowerCase().includes(focused.value.toLowerCase())
+      );
+
+      return interaction.respond(filtered.slice(0, 25));
+    }
   },
 
   async execute(interaction) {
