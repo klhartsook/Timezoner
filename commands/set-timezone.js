@@ -1,17 +1,14 @@
+// commands/settimezone.js
 const { SlashCommandBuilder, MessageFlags } = require("discord.js");
 const moment = require("moment-timezone");
 const { timezoneData } = require("../timezone-definitions");
 
-const timezones = Object.values(timezoneData);
-
-// Find timezone by ANY identifier
+// Find timezone by IANA name
 function findTimezone(value) {
   const normalized = value.trim().toLowerCase();
-  return timezones.find(tz =>
-    tz.offset.toLowerCase() === normalized ||
-    tz.label.toLowerCase() === normalized ||
+  return timezoneData.find(tz =>
     tz.iana.toLowerCase() === normalized ||
-    tz.aliases?.some(alias => alias.toLowerCase() === normalized)
+    tz.label.toLowerCase() === normalized
   );
 }
 
@@ -37,27 +34,18 @@ module.exports = {
         .setAutocomplete(true)
     ),
 
-  // ---------------------------------------------------------
-  // AUTOCOMPLETE — AM/PM FILTER + SEARCH FILTER + 25 LIMIT
-  // ---------------------------------------------------------
   async autocomplete(interaction) {
     const query = interaction.options.getString("timezone", true).toLowerCase();
-    const period = interaction.options.getString("period"); // AM or PM
+    const period = interaction.options.getString("period");
 
-    const matches = timezones
-      // 1. Filter by AM/PM first (required to avoid Discord truncation)
-      .filter(tz => {
-        const currentPeriod = moment().tz(tz.iana).format("A"); // AM or PM
-        return currentPeriod === period;
-      })
-      // 2. Filter by search text
-      .filter(tz => {
-        const text = `${tz.offset} ${tz.label} ${tz.iana} ${(tz.aliases || []).join(" ")}`.toLowerCase();
-        return query.length === 0 || text.includes(query);
-      })
-      // 3. Discord limit
+    const matches = timezoneData
+      // Filter by AM/PM
+      .filter(tz => moment().tz(tz.iana).format("A") === period)
+      // Filter by search text
+      .filter(tz => tz.iana.toLowerCase().includes(query))
+      // Discord limit
       .slice(0, 25)
-      // 4. Format display
+      // Format display
       .map(tz => ({
         name: `${moment().tz(tz.iana).format("h:mm A")} — ${tz.offset} (${tz.label})`,
         value: tz.iana
@@ -66,39 +54,20 @@ module.exports = {
     await interaction.respond(matches);
   },
 
-  // ---------------------------------------------------------
-  // EXECUTE — Save timezone + assign role
-  // ---------------------------------------------------------
   async execute(interaction) {
-    if (!interaction.guild) {
-      return interaction.reply({
-        content: "❌ This command can only be used in a server.",
-        flags: MessageFlags.Ephemeral
-      });
-    }
-
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    // Get timezone from autocomplete selection
     const timezone = findTimezone(interaction.options.getString("timezone", true));
     if (!timezone) {
-      return interaction.editReply({
-        content: "❌ Choose a timezone from the autocomplete options."
-      });
+      return interaction.editReply("❌ Invalid timezone.");
     }
 
     const member = await interaction.guild.members.fetch(interaction.user.id);
 
     // Remove old timezone roles
-    const timezoneRoleNames = timezones.flatMap(tz => [
-      tz.offset,
-      ...(tz.aliases || [])
-    ]);
-
-    for (const role of member.roles.cache.values()) {
-      if (timezoneRoleNames.includes(role.name)) {
-        await member.roles.remove(role);
-      }
+    const oldRoles = member.roles.cache.filter(r => r.name.startsWith("UTC"));
+    for (const role of oldRoles.values()) {
+      await member.roles.remove(role);
     }
 
     // Create role if missing
@@ -106,12 +75,10 @@ module.exports = {
     if (!role) {
       role = await interaction.guild.roles.create({
         name: timezone.offset,
-        color: "Grey",
-        reason: "Timezone role created by settimezone command"
+        color: "Grey"
       });
     }
 
-    // Add new timezone role
     await member.roles.add(role);
 
     // Save timezone to DB
@@ -123,8 +90,8 @@ module.exports = {
       );
     });
 
-    return interaction.editReply({
-      content: `✅ Your timezone is set to **${timezone.offset} — ${timezone.label}** and you now have the **${role.name}** role.`
-    });
+    return interaction.editReply(
+      `✅ Your timezone is set to **${timezone.label} (${timezone.offset})**`
+    );
   }
 };
