@@ -1,8 +1,14 @@
 // index.js
-const { Client, GatewayIntentBits, Collection, MessageFlags, Partials, ApplicationCommandType } = require("discord.js");
+const {
+  Client,
+  GatewayIntentBits,
+  Collection,
+  MessageFlags,
+  Partials,
+  ApplicationCommandType
+} = require("discord.js");
 const fs = require("fs");
 const path = require("path");
-const sqlite3 = require("sqlite3").verbose();
 
 // --- Create client
 const client = new Client({
@@ -43,15 +49,19 @@ for (const file of fs.readdirSync(commandsPath)) {
   }
 }
 
-// --- Database
-const dbPath = path.join(__dirname, "database", "timezones.db");
-fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-const db = new sqlite3.Database(dbPath);
+// --- JSON Timezone Database (REPLACES OLD SQLITE)
+const tzPath = path.join(__dirname, "data", "timezones.json");
 
-// Create tables if they don't exist
-db.run("CREATE TABLE IF NOT EXISTS timezones (user TEXT PRIMARY KEY, tz TEXT)");
+// Ensure folder exists
+fs.mkdirSync(path.dirname(tzPath), { recursive: true });
 
-client.db = db;
+// Ensure file exists
+if (!fs.existsSync(tzPath)) {
+  fs.writeFileSync(tzPath, "{}");
+}
+
+// Attach JSON path to client for commands that need it
+client.tzPath = tzPath;
 
 // --- Load events
 const possibleEventsPaths = [
@@ -138,7 +148,7 @@ client.on("error", (err) => {
   console.error("Discord client error:", err);
 });
 
-// --- Ready
+// --- Ready (updated for v15)
 client.on("clientReady", () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
