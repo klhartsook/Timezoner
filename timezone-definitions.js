@@ -18,7 +18,7 @@ const timezoneData = {
   "🇯": { offset: "UTC-9", label: "Alaska", iana: "America/Anchorage" },
   "🇰": { offset: "UTC-8", label: "Los Angeles", iana: "America/Los_Angeles" },
   "🇱": { offset: "UTC-7", label: "Phoenix", iana: "America/Phoenix" },
-  "🇲": { offset: "UTC-6", label: "Mexico City", iana: "America/Mexico_City" },
+  "🇲": { offset: "UTC-6", label: "Mexico City", iana: "America/Mexico_City", aliases: ["CST", "Central Standard Time"] },
   "1️⃣": { offset: "UTC-5", label: "New York", iana: "America/New_York" },
 
   "2️⃣": { offset: "UTC-4", label: "Santiago", iana: "America/Santiago" },
