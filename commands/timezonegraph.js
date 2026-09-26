@@ -12,31 +12,37 @@ function buildTimezoneGroups(guild, db) {
     const member = guild.members.cache.get(userId);
     if (!member) continue;
 
-    const offset = moment().tz(tz).format("Z"); // e.g. "-07:00"
-    const label = tz;
+    // Get current local time for this timezone
+    const localTime = moment().tz(tz);
+    const hourLabel = localTime.format("h A"); // e.g. "3 PM"
 
-    if (!groups.has(offset)) {
-      groups.set(offset, {
-        offset,
-        label,
+    // Group by local hour only
+    if (!groups.has(hourLabel)) {
+      groups.set(hourLabel, {
+        hourLabel,
         members: []
       });
     }
 
-    groups.get(offset).members.push(member);
+    groups.get(hourLabel).members.push(member);
   }
 
-  return [...groups.values()].sort((a, b) =>
-    a.offset.localeCompare(b.offset, undefined, { numeric: true })
-  );
+  // Sort by hour chronologically
+  const ordered = [...groups.values()].sort((a, b) => {
+    const aHour = moment(a.hourLabel, "h A").hour();
+    const bHour = moment(b.hourLabel, "h A").hour();
+    return aHour - bHour;
+  });
+
+  return ordered;
 }
 
 function buildEmbeds(guild, groups) {
   const embeds = [];
   let current = new EmbedBuilder()
-    .setTitle(`🕒 Timezone Graph for ${guild.name}`)
+    .setTitle(`🕒 Local Time Graph for ${guild.name}`)
     .setColor("#00AEEF")
-    .setDescription("Members grouped by their saved timezone.");
+    .setDescription("Members grouped by their current local time.");
   let currentSize = current.data.description.length + current.data.title.length;
 
   for (const group of groups) {
@@ -58,15 +64,15 @@ function buildEmbeds(guild, groups) {
     for (let i = 0; i < memberChunks.length; i++) {
       const name =
         i === 0
-          ? `${group.offset} — ${group.label} (${group.members.length})`
-          : `${group.offset} — ${group.label} (continued)`;
+          ? `${group.hourLabel} (${group.members.length})`
+          : `${group.hourLabel} (continued)`;
       const value = memberChunks[i];
       const fieldSize = name.length + value.length;
 
       if (current.data.fields?.length >= 25 || currentSize + fieldSize > 5500) {
         embeds.push(current);
         current = new EmbedBuilder()
-          .setTitle(`🕒 Timezone Graph for ${guild.name}`)
+          .setTitle(`🕒 Local Time Graph for ${guild.name}`)
           .setColor("#00AEEF");
         currentSize = current.data.title.length;
       }
@@ -83,7 +89,7 @@ function buildEmbeds(guild, groups) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("timezonegraph")
-    .setDescription("Show members grouped by their saved timezone."),
+    .setDescription("Show members grouped by their current local time."),
 
   async execute(interaction) {
     if (!interaction.guild) {
@@ -94,7 +100,6 @@ module.exports = {
     }
 
     await interaction.deferReply();
-
     await interaction.guild.members.fetch();
 
     let db = {};
