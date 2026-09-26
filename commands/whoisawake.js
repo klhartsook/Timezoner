@@ -20,16 +20,16 @@ module.exports = {
     // Fetch all members
     const members = await interaction.guild.members.fetch();
 
-    // Fetch timezone DB
+    // Database reference
     const db = interaction.client.db;
 
     const awake = [];
     const asleep = [];
     const unknown = [];
 
-    // Define awake hours (customize this!)
-    const AWAKE_START = 7;   // 7 AM
-    const AWAKE_END = 23;    // 11 PM
+    // Awake window: 8 AM → 8 PM
+    const AWAKE_START = 8;   // 8 AM
+    const AWAKE_END = 20;    // 8 PM
 
     for (const member of members.values()) {
       if (member.user.bot) continue;
