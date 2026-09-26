@@ -1,9 +1,14 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
 const moment = require("moment-timezone");
 const fs = require("fs");
-const path = require("path");
 
-const tzPath = path.join(__dirname, "../data/timezones.json");
+// IMPORTANT: Use Railway Volume path
+const tzPath = "/data/timezones.json";
+
+// Ensure the file exists in Railway persistent storage
+if (!fs.existsSync(tzPath)) {
+  fs.writeFileSync(tzPath, "{}");
+}
 
 function buildTimezoneGroups(guild, db) {
   const groups = new Map();
