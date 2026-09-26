@@ -1,25 +1,25 @@
-// commands/settimezone.js
+// commands/set-timezone.js
 const { SlashCommandBuilder, MessageFlags } = require("discord.js");
 const moment = require("moment-timezone");
-const { timezoneData } = require("../timezone-definitions");
-
-// Find timezone by IANA name
-function findTimezone(value) {
-  const normalized = value.trim().toLowerCase();
-  return timezoneData.find(tz =>
-    tz.iana.toLowerCase() === normalized ||
-    tz.label.toLowerCase() === normalized
-  );
-}
+const { regions } = require("../timezone-regions");
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("settimezone")
+    .setName("set-timezone")
     .setDescription("Set your timezone and receive the matching role.")
     .addStringOption(option =>
       option
+        .setName("region")
+        .setDescription("Choose a region")
+        .setRequired(true)
+        .addChoices(
+          ...Object.keys(regions).map(r => ({ name: r, value: r }))
+        )
+    )
+    .addStringOption(option =>
+      option
         .setName("period")
-        .setDescription("Filter timezones by AM or PM")
+        .setDescription("Filter by AM or PM")
         .setRequired(true)
         .addChoices(
           { name: "AM", value: "AM" },
@@ -34,64 +34,77 @@ module.exports = {
         .setAutocomplete(true)
     ),
 
+  // ---------------------------------------------------------
+  // AUTOCOMPLETE — Region → AM/PM → Search → ≤25 items
+  // ---------------------------------------------------------
   async autocomplete(interaction) {
-    const query = interaction.options.getString("timezone", true).toLowerCase();
+    const region = interaction.options.getString("region");
     const period = interaction.options.getString("period");
+    const query = interaction.options.getString("timezone").toLowerCase();
 
-    const matches = timezoneData
-      // Filter by AM/PM
+    const tzList = regions[region];
+
+    const matches = tzList
+      // AM/PM filter
       .filter(tz => moment().tz(tz.iana).format("A") === period)
-      // Filter by search text
+      // search filter
       .filter(tz => tz.iana.toLowerCase().includes(query))
       // Discord limit
       .slice(0, 25)
-      // Format display
+      // display
       .map(tz => ({
-        name: `${moment().tz(tz.iana).format("h:mm A")} — ${tz.offset} (${tz.label})`,
+        name: `${tz.currentTime} — ${tz.offset} (${tz.label})`,
         value: tz.iana
       }));
 
     await interaction.respond(matches);
   },
 
+  // ---------------------------------------------------------
+  // EXECUTE — Save timezone + assign role
+  // ---------------------------------------------------------
   async execute(interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const timezone = findTimezone(interaction.options.getString("timezone", true));
-    if (!timezone) {
+    const region = interaction.options.getString("region");
+    const iana = interaction.options.getString("timezone");
+
+    const tz = regions[region].find(t => t.iana === iana);
+    if (!tz) {
       return interaction.editReply("❌ Invalid timezone.");
     }
 
     const member = await interaction.guild.members.fetch(interaction.user.id);
 
-    // Remove old timezone roles
-    const oldRoles = member.roles.cache.filter(r => r.name.startsWith("UTC"));
-    for (const role of oldRoles.values()) {
-      await member.roles.remove(role);
+    // Remove old UTC roles
+    for (const role of member.roles.cache.values()) {
+      if (role.name.startsWith("UTC")) {
+        await member.roles.remove(role);
+      }
     }
 
     // Create role if missing
-    let role = interaction.guild.roles.cache.find(r => r.name === timezone.offset);
+    let role = interaction.guild.roles.cache.find(r => r.name === tz.offset);
     if (!role) {
       role = await interaction.guild.roles.create({
-        name: timezone.offset,
+        name: tz.offset,
         color: "Grey"
       });
     }
 
     await member.roles.add(role);
 
-    // Save timezone to DB
+    // Save to DB
     await new Promise((resolve, reject) => {
       interaction.client.db.run(
         "INSERT OR REPLACE INTO timezones (user, tz) VALUES (?, ?)",
-        [interaction.user.id, timezone.iana],
+        [interaction.user.id, tz.iana],
         err => (err ? reject(err) : resolve())
       );
     });
 
     return interaction.editReply(
-      `✅ Your timezone is set to **${timezone.label} (${timezone.offset})**`
+      `✅ Your timezone is set to **${tz.label} (${tz.offset})**`
     );
   }
 };
