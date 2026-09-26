@@ -18,7 +18,7 @@ module.exports = {
         .addChoices(...hourList)
     )
 
-    // 2️⃣ Region selector (filtered later)
+    // 2️⃣ Region selector
     .addStringOption(option =>
       option
         .setName("region")
@@ -34,20 +34,45 @@ module.exports = {
         )
     )
 
-    // 3️⃣ Timezone selector (filtered later)
+    // 3️⃣ Timezone selector (autocomplete)
     .addStringOption(option =>
       option
         .setName("timezone")
         .setDescription("Pick your exact timezone.")
         .setRequired(true)
+        .setAutocomplete(true)
     ),
 
-  async execute(interaction) {
-    const hourValue = interaction.options.getString("hour"); // "2-PM"
+  async autocomplete(interaction) {
+    const focused = interaction.options.getFocused();
+    const hourValue = interaction.options.getString("hour");
     const regionValue = interaction.options.getString("region");
+
+    if (!hourValue || !regionValue) {
+      return interaction.respond([]);
+    }
+
+    const [hour, period] = hourValue.split("-"); // "2-PM" → ["2", "PM"]
+
+    const tzList = regions[regionValue].filter(tz =>
+      tz.currentHour === hour && tz.currentPeriod === period
+    );
+
+    const choices = tzList.map(tz => ({
+      name: `${tz.label} — ${tz.offset} — ${tz.currentTime}`,
+      value: tz.iana
+    }));
+
+    const filtered = choices.filter(c =>
+      c.name.toLowerCase().includes(focused.toLowerCase())
+    );
+
+    interaction.respond(filtered.slice(0, 25));
+  },
+
+  async execute(interaction) {
     const timezoneValue = interaction.options.getString("timezone");
 
-    // Save timezone however your bot stores it
     await interaction.reply(
       `Your timezone has been set to **${timezoneValue}**.`
     );
