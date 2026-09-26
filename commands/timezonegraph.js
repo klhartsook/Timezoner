@@ -1,35 +1,33 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
-const { timezoneData } = require("../timezone-definitions");
+const moment = require("moment-timezone");
+const fs = require("fs");
+const path = require("path");
 
-const timezones = Object.values(timezoneData);
-const timezoneByRoleName = new Map();
-for (const timezone of timezones) {
-  for (const roleName of [timezone.offset, ...(timezone.aliases || [])]) {
-    timezoneByRoleName.set(roleName, timezone);
-  }
-}
+const tzPath = path.join(__dirname, "../data/timezones.json");
 
-function buildTimezoneGroups(members) {
+function buildTimezoneGroups(guild, db) {
   const groups = new Map();
 
-  for (const member of members.values()) {
-    for (const role of member.roles.cache.values()) {
-      const timezone = timezoneByRoleName.get(role.name);
-      if (!timezone) continue;
+  for (const [userId, tz] of Object.entries(db)) {
+    const member = guild.members.cache.get(userId);
+    if (!member) continue;
 
-      if (!groups.has(timezone.offset)) {
-        groups.set(timezone.offset, {
-          timezone,
-          members: []
-        });
-      }
+    const offset = moment().tz(tz).format("Z"); // e.g. "-07:00"
+    const label = tz;
 
-      groups.get(timezone.offset).members.push(member);
+    if (!groups.has(offset)) {
+      groups.set(offset, {
+        offset,
+        label,
+        members: []
+      });
     }
+
+    groups.get(offset).members.push(member);
   }
 
   return [...groups.values()].sort((a, b) =>
-    a.timezone.offset.localeCompare(b.timezone.offset, undefined, { numeric: true })
+    a.offset.localeCompare(b.offset, undefined, { numeric: true })
   );
 }
 
@@ -38,11 +36,11 @@ function buildEmbeds(guild, groups) {
   let current = new EmbedBuilder()
     .setTitle(`🕒 Timezone Graph for ${guild.name}`)
     .setColor("#00AEEF")
-    .setDescription("Members grouped by their timezone role.");
+    .setDescription("Members grouped by their saved timezone.");
   let currentSize = current.data.description.length + current.data.title.length;
 
   for (const group of groups) {
-    const memberMentions = group.members.map(member => `<@${member.id}>`);
+    const memberMentions = group.members.map(m => `<@${m.id}>`);
     const memberChunks = [];
     let chunk = "";
 
@@ -57,17 +55,15 @@ function buildEmbeds(guild, groups) {
     }
     if (chunk) memberChunks.push(chunk);
 
-    for (let index = 0; index < memberChunks.length; index++) {
-      const name = index === 0
-        ? `${group.timezone.offset} - ${group.timezone.label} (${group.members.length})`
-        : `${group.timezone.offset} - ${group.timezone.label} (continued)`;
-      const value = memberChunks[index];
+    for (let i = 0; i < memberChunks.length; i++) {
+      const name =
+        i === 0
+          ? `${group.offset} — ${group.label} (${group.members.length})`
+          : `${group.offset} — ${group.label} (continued)`;
+      const value = memberChunks[i];
       const fieldSize = name.length + value.length;
 
-      if (
-        current.data.fields?.length >= 25 ||
-        currentSize + fieldSize > 5500
-      ) {
+      if (current.data.fields?.length >= 25 || currentSize + fieldSize > 5500) {
         embeds.push(current);
         current = new EmbedBuilder()
           .setTitle(`🕒 Timezone Graph for ${guild.name}`)
@@ -87,7 +83,7 @@ function buildEmbeds(guild, groups) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("timezonegraph")
-    .setDescription("Show members grouped by their timezone role."),
+    .setDescription("Show members grouped by their saved timezone."),
 
   async execute(interaction) {
     if (!interaction.guild) {
@@ -100,11 +96,19 @@ module.exports = {
     await interaction.deferReply();
 
     await interaction.guild.members.fetch();
-    const groups = buildTimezoneGroups(interaction.guild.members.cache);
+
+    let db = {};
+    try {
+      db = JSON.parse(fs.readFileSync(tzPath, "utf8"));
+    } catch {
+      db = {};
+    }
+
+    const groups = buildTimezoneGroups(interaction.guild, db);
 
     if (!groups.length) {
       return interaction.editReply({
-        content: "No members currently have a timezone role."
+        content: "No members have set a timezone yet."
       });
     }
 
