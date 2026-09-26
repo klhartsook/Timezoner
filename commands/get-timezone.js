@@ -1,13 +1,10 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
 const moment = require("moment-timezone");
-const { timezoneData } = require("../timezone-definitions");
+const fs = require("fs");
+const path = require("path");
 
-const timezoneByRoleName = new Map();
-for (const timezone of Object.values(timezoneData)) {
-  for (const roleName of [timezone.offset, ...(timezone.aliases || [])]) {
-    timezoneByRoleName.set(roleName, timezone);
-  }
-}
+// Path to your saved timezone data
+const tzPath = path.join(__dirname, "../data/timezones.json");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -29,18 +26,16 @@ module.exports = {
     }
 
     const user = interaction.options.getUser("user", true);
-    const member = await interaction.guild.members.fetch(user.id).catch(() => null);
 
-    if (!member) {
-      return interaction.reply({
-        content: "❌ That user is not a member of this server.",
-        flags: MessageFlags.Ephemeral
-      });
+    // Load timezone database
+    let db = {};
+    try {
+      db = JSON.parse(fs.readFileSync(tzPath, "utf8"));
+    } catch {
+      db = {};
     }
 
-    const timezone = member.roles.cache
-      .map(role => timezoneByRoleName.get(role.name))
-      .find(Boolean);
+    const timezone = db[user.id];
 
     if (!timezone) {
       return interaction.reply({
@@ -49,12 +44,12 @@ module.exports = {
       });
     }
 
-    const localTime = moment().tz(timezone.iana).format("h:mm A");
+    const localTime = moment().tz(timezone).format("h:mm A");
 
     const embed = new EmbedBuilder()
       .setTitle(`🕒 Timezone for ${user.username}`)
-      .setDescription(`**${timezone.offset} - ${timezone.label}**\nLocal time: **${localTime}**`)
-      .addFields({ name: "IANA timezone", value: timezone.iana })
+      .setDescription(`**${timezone}**\nLocal time: **${localTime}**`)
+      .addFields({ name: "IANA timezone", value: timezone })
       .setColor("#00AEEF");
 
     return interaction.reply({ embeds: [embed] });
