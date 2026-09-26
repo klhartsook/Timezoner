@@ -2,9 +2,12 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js"
 const moment = require("moment-timezone");
 const { timezoneData } = require("../timezone-definitions");
 
-const timezoneByRoleName = new Map(
-  Object.values(timezoneData).map(timezone => [timezone.offset, timezone])
-);
+const timezoneByRoleName = new Map();
+for (const timezone of Object.values(timezoneData)) {
+  for (const roleName of [timezone.offset, ...(timezone.aliases || [])]) {
+    timezoneByRoleName.set(roleName, timezone);
+  }
+}
 
 module.exports = {
   data: new SlashCommandBuilder()

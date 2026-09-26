@@ -12,7 +12,9 @@ function getTimezoneFromMember(member) {
 
   const roleNameToIana = {};
   for (const tz of Object.values(timezoneData)) {
-    roleNameToIana[tz.offset] = tz.iana;
+    for (const roleName of [tz.offset, ...(tz.aliases || [])]) {
+      roleNameToIana[roleName] = tz.iana;
+    }
   }
 
   const timezoneRole = member.roles.cache.find(role => roleNameToIana[role.name]);

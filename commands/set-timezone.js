@@ -61,7 +61,10 @@ module.exports = {
     }
 
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const timezoneRoleNames = timezones.map(tz => tz.offset);
+    const timezoneRoleNames = timezones.flatMap(tz => [
+      tz.offset,
+      ...(tz.aliases || [])
+    ]);
 
     for (const role of member.roles.cache.values()) {
       if (timezoneRoleNames.includes(role.name)) {
