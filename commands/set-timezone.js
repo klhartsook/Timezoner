@@ -20,6 +20,16 @@ module.exports = {
     .setDescription("Set your timezone and receive the matching role.")
     .addStringOption(option =>
       option
+        .setName("period")
+        .setDescription("Choose whether your local time is AM or PM")
+        .setRequired(true)
+        .addChoices(
+          { name: "AM", value: "AM" },
+          { name: "PM", value: "PM" }
+        )
+    )
+    .addStringOption(option =>
+      option
         .setName("timezone")
         .setDescription("Choose a timezone")
         .setRequired(true)
@@ -28,7 +38,9 @@ module.exports = {
 
   async autocomplete(interaction) {
     const query = interaction.options.getString("timezone", true).toLowerCase();
+    const period = interaction.options.getString("period");
     const matches = timezones
+      .filter(tz => !period || moment().tz(tz.iana).format("A") === period)
       .filter(tz =>
         `${tz.offset} ${tz.label} ${tz.iana} ${(tz.aliases || []).join(" ")}`
           .toLowerCase()
