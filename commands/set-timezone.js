@@ -4,6 +4,7 @@ const { timezoneData } = require("../timezone-definitions");
 
 const timezones = Object.values(timezoneData);
 
+// Find timezone by ANY identifier
 function findTimezone(value) {
   const normalized = value.trim().toLowerCase();
   return timezones.find(tz =>
@@ -36,25 +37,39 @@ module.exports = {
         .setAutocomplete(true)
     ),
 
+  // -----------------------------
+  // AUTOCOMPLETE
+  // -----------------------------
   async autocomplete(interaction) {
     const query = interaction.options.getString("timezone", true).toLowerCase();
     const period = interaction.options.getString("period");
+
     const matches = timezones
-      .filter(tz => !period || moment().tz(tz.iana).format("A") === period)
+      // Filter by AM/PM correctly
+      .filter(tz => {
+        const currentPeriod = moment().tz(tz.iana).format("A"); // AM or PM
+        return !period || currentPeriod === period;
+      })
+      // Filter by search query
       .filter(tz =>
         `${tz.offset} ${tz.label} ${tz.iana} ${(tz.aliases || []).join(" ")}`
           .toLowerCase()
           .includes(query)
       )
+      // Limit to 25
       .slice(0, 25)
+      // Return proper autocomplete structure
       .map(tz => ({
-        name: `${moment().tz(tz.iana).format("h:mm A")} - ${tz.offset}`,
-        value: tz.offset
+        name: `${moment().tz(tz.iana).format("h:mm A")} — ${tz.offset} (${tz.label})`,
+        value: tz.iana   // FIXED: must return unique IANA timezone
       }));
 
     await interaction.respond(matches);
   },
 
+  // -----------------------------
+  // EXECUTE
+  // -----------------------------
   async execute(interaction) {
     if (!interaction.guild) {
       return interaction.reply({
@@ -65,6 +80,7 @@ module.exports = {
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
+    // Get timezone from autocomplete selection
     const timezone = findTimezone(interaction.options.getString("timezone", true));
     if (!timezone) {
       return interaction.editReply({
@@ -73,6 +89,8 @@ module.exports = {
     }
 
     const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    // Remove old timezone roles
     const timezoneRoleNames = timezones.flatMap(tz => [
       tz.offset,
       ...(tz.aliases || [])
@@ -84,6 +102,7 @@ module.exports = {
       }
     }
 
+    // Create role if missing
     let role = interaction.guild.roles.cache.find(r => r.name === timezone.offset);
     if (!role) {
       role = await interaction.guild.roles.create({
@@ -93,8 +112,10 @@ module.exports = {
       });
     }
 
+    // Add new timezone role
     await member.roles.add(role);
 
+    // Save timezone to DB
     await new Promise((resolve, reject) => {
       interaction.client.db.run(
         "INSERT OR REPLACE INTO timezones (user, tz) VALUES (?, ?)",
@@ -104,7 +125,7 @@ module.exports = {
     });
 
     return interaction.editReply({
-      content: `✅ Your timezone is set to **${timezone.offset} - ${timezone.label}** and you now have the **${role.name}** role.`
+      content: `✅ Your timezone is set to **${timezone.offset} — ${timezone.label}** and you now have the **${role.name}** role.`
     });
   }
 };
