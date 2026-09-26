@@ -14,24 +14,24 @@ function buildTimezoneGroups(guild, db) {
 
     // Get current local time for this timezone
     const localTime = moment().tz(tz);
-    const hourLabel = localTime.format("h A"); // e.g. "3 PM"
+    const timeLabel = localTime.format("h:mm A"); // e.g. "3:12 PM"
 
-    // Group by local hour only
-    if (!groups.has(hourLabel)) {
-      groups.set(hourLabel, {
-        hourLabel,
+    // Group by exact local time (hour + minute)
+    if (!groups.has(timeLabel)) {
+      groups.set(timeLabel, {
+        timeLabel,
         members: []
       });
     }
 
-    groups.get(hourLabel).members.push(member);
+    groups.get(timeLabel).members.push(member);
   }
 
-  // Sort by hour chronologically
+  // Sort chronologically by actual time
   const ordered = [...groups.values()].sort((a, b) => {
-    const aHour = moment(a.hourLabel, "h A").hour();
-    const bHour = moment(b.hourLabel, "h A").hour();
-    return aHour - bHour;
+    const aTime = moment(a.timeLabel, "h:mm A");
+    const bTime = moment(b.timeLabel, "h:mm A");
+    return aTime - bTime;
   });
 
   return ordered;
@@ -42,7 +42,7 @@ function buildEmbeds(guild, groups) {
   let current = new EmbedBuilder()
     .setTitle(`🕒 Local Time Graph for ${guild.name}`)
     .setColor("#00AEEF")
-    .setDescription("Members grouped by their current local time.");
+    .setDescription("Members grouped by their exact current local time.");
   let currentSize = current.data.description.length + current.data.title.length;
 
   for (const group of groups) {
@@ -64,8 +64,8 @@ function buildEmbeds(guild, groups) {
     for (let i = 0; i < memberChunks.length; i++) {
       const name =
         i === 0
-          ? `${group.hourLabel} (${group.members.length})`
-          : `${group.hourLabel} (continued)`;
+          ? `${group.timeLabel} (${group.members.length})`
+          : `${group.timeLabel} (continued)`;
       const value = memberChunks[i];
       const fieldSize = name.length + value.length;
 
@@ -89,7 +89,7 @@ function buildEmbeds(guild, groups) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("timezonegraph")
-    .setDescription("Show members grouped by their current local time."),
+    .setDescription("Show members grouped by their exact current local time."),
 
   async execute(interaction) {
     if (!interaction.guild) {
