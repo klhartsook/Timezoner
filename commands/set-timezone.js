@@ -22,7 +22,7 @@ module.exports = {
     .addStringOption(option =>
       option
         .setName("period")
-        .setDescription("Choose whether your local time is AM or PM")
+        .setDescription("Filter timezones by AM or PM")
         .setRequired(true)
         .addChoices(
           { name: "AM", value: "AM" },
@@ -37,39 +37,38 @@ module.exports = {
         .setAutocomplete(true)
     ),
 
-  // -----------------------------
-  // AUTOCOMPLETE
-  // -----------------------------
+  // ---------------------------------------------------------
+  // AUTOCOMPLETE — AM/PM FILTER + SEARCH FILTER + 25 LIMIT
+  // ---------------------------------------------------------
   async autocomplete(interaction) {
     const query = interaction.options.getString("timezone", true).toLowerCase();
-    const period = interaction.options.getString("period");
+    const period = interaction.options.getString("period"); // AM or PM
 
     const matches = timezones
-      // Filter by AM/PM correctly
+      // 1. Filter by AM/PM first (required to avoid Discord truncation)
       .filter(tz => {
         const currentPeriod = moment().tz(tz.iana).format("A"); // AM or PM
-        return !period || currentPeriod === period;
+        return currentPeriod === period;
       })
-      // Filter by search query
-      .filter(tz =>
-        `${tz.offset} ${tz.label} ${tz.iana} ${(tz.aliases || []).join(" ")}`
-          .toLowerCase()
-          .includes(query)
-      )
-      // Limit to 25
+      // 2. Filter by search text
+      .filter(tz => {
+        const text = `${tz.offset} ${tz.label} ${tz.iana} ${(tz.aliases || []).join(" ")}`.toLowerCase();
+        return query.length === 0 || text.includes(query);
+      })
+      // 3. Discord limit
       .slice(0, 25)
-      // Return proper autocomplete structure
+      // 4. Format display
       .map(tz => ({
         name: `${moment().tz(tz.iana).format("h:mm A")} — ${tz.offset} (${tz.label})`,
-        value: tz.iana   // FIXED: must return unique IANA timezone
+        value: tz.iana
       }));
 
     await interaction.respond(matches);
   },
 
-  // -----------------------------
-  // EXECUTE
-  // -----------------------------
+  // ---------------------------------------------------------
+  // EXECUTE — Save timezone + assign role
+  // ---------------------------------------------------------
   async execute(interaction) {
     if (!interaction.guild) {
       return interaction.reply({
