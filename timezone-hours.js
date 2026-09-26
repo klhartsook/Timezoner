@@ -6,7 +6,7 @@ function generateHours() {
   // AM hours
   for (let h = 1; h <= 12; h++) {
     hours.push({
-      label: `${h}:xx AM`,
+      name: `${h}:xx AM`,
       value: `${h}-AM`
     });
   }
@@ -14,7 +14,7 @@ function generateHours() {
   // PM hours
   for (let h = 1; h <= 12; h++) {
     hours.push({
-      label: `${h}:xx PM`,
+      name: `${h}:xx PM`,
       value: `${h}-PM`
     });
   }
