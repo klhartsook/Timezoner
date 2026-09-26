@@ -2,6 +2,11 @@ const { SlashCommandBuilder } = require("discord.js");
 const moment = require("moment-timezone");
 const { hourList } = require("../timezone-hours");
 const { regions } = require("../timezone-regions");
+const fs = require("fs");
+const path = require("path");
+
+// Path to your saved timezone data
+const tzPath = path.join(__dirname, "../data/timezones.json");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -96,6 +101,20 @@ module.exports = {
 
   async execute(interaction) {
     const timezoneValue = interaction.options.getString("timezone");
+
+    // ⭐ Load existing timezone database
+    let db = {};
+    try {
+      db = JSON.parse(fs.readFileSync(tzPath, "utf8"));
+    } catch {
+      db = {};
+    }
+
+    // ⭐ Save timezone for this user
+    db[interaction.user.id] = timezoneValue;
+
+    // ⭐ Write back to file
+    fs.writeFileSync(tzPath, JSON.stringify(db, null, 2));
 
     await interaction.reply(
       `Your timezone has been set to **${timezoneValue}**.`
