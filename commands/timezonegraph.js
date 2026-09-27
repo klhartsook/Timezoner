@@ -6,6 +6,7 @@ const fs = require("fs");
 const tzPath = "/data/timezones.json";
 
 // Ensure the file exists in Railway persistent storage
+fs.mkdirSync("/data", { recursive: true });
 if (!fs.existsSync(tzPath)) {
   fs.writeFileSync(tzPath, "{}");
 }

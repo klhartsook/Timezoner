@@ -12,6 +12,7 @@ const { timezoneData } = require("../timezone-definitions");
 const tzPath = "/data/timezones.json";
 
 // Ensure file exists
+fs.mkdirSync("/data", { recursive: true });
 if (!fs.existsSync(tzPath)) {
   fs.writeFileSync(tzPath, "{}");
 }
