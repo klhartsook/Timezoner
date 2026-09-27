@@ -7,8 +7,10 @@ const fs = require("fs");
 // Railway persistent timezone file
 const tzPath = "/data/timezones.json";
 
-// Ensure file exists
+// Ensure /data exists (fix for Windows)
 fs.mkdirSync("/data", { recursive: true });
+
+// Ensure timezone file exists
 if (!fs.existsSync(tzPath)) {
   fs.writeFileSync(tzPath, "{}");
 }
@@ -80,7 +82,7 @@ module.exports = {
       return interaction.respond(filteredHours.slice(0, 25));
     }
 
-    // ⭐ Timezone autocomplete
+    // ⭐ Timezone autocomplete (UPDATED FILTER FIX)
     if (focused.name === "timezone") {
       const hourValue = interaction.options.getString("hour");
       const regionValue = interaction.options.getString("region");
@@ -91,9 +93,13 @@ module.exports = {
 
       const [hour, period] = hourValue.split("-");
 
+      // ⭐ Filter by region AND current hour + AM/PM
       const tzList = regions[regionValue].filter(
         tz => tz.currentHour === hour && tz.currentPeriod === period
       );
+
+      // ⭐ Sort by UTC offset for cleaner display
+      tzList.sort((a, b) => a.offset.localeCompare(b.offset));
 
       const choices = tzList.map(tz => ({
         name: `${tz.label} — ${tz.offset} — ${tz.currentTime}`,
