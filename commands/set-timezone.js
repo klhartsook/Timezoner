@@ -82,7 +82,7 @@ module.exports = {
       return interaction.respond(filteredHours.slice(0, 25));
     }
 
-    // ⭐ Timezone autocomplete (UPDATED FILTER FIX)
+    // ⭐ Timezone autocomplete (Dynamic time filtering)
     if (focused.name === "timezone") {
       const hourValue = interaction.options.getString("hour");
       const regionValue = interaction.options.getString("region");
@@ -93,12 +93,15 @@ module.exports = {
 
       const [hour, period] = hourValue.split("-");
 
-      // ⭐ Filter by region AND current hour + AM/PM
-      const tzList = regions[regionValue].filter(
-        tz => tz.currentHour === hour && tz.currentPeriod === period
-      );
+      // Dynamically recalculate each timezone’s current hour and AM/PM
+      const tzList = regions[regionValue].filter(tz => {
+        const now = moment().tz(tz.iana);
+        const currentHour = now.format("h");
+        const currentPeriod = now.format("A");
+        return currentHour === hour && currentPeriod === period;
+      });
 
-      // ⭐ Sort by UTC offset for cleaner display
+      // Sort by UTC offset for cleaner display
       tzList.sort((a, b) => a.offset.localeCompare(b.offset));
 
       const choices = tzList.map(tz => ({
