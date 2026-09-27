@@ -38,7 +38,7 @@ module.exports = {
         .setAutocomplete(true)
     )
 
-    // ⭐ Step 3 — Region
+    // ⭐ Step 3 — Region (UPDATED)
     .addStringOption(option =>
       option
         .setName("region")
@@ -47,9 +47,13 @@ module.exports = {
         .addChoices(
           { name: "Americas", value: "Americas" },
           { name: "Europe", value: "Europe" },
-          { name: "Asia", value: "Asia" },
-          { name: "Oceania", value: "Oceania" },
           { name: "Africa", value: "Africa" },
+          { name: "Oceania", value: "Oceania" },
+          { name: "Asia West", value: "Asia West" },
+          { name: "Asia Central", value: "Asia Central" },
+          { name: "Asia South", value: "Asia South" },
+          { name: "Asia East", value: "Asia East" },
+          { name: "Asia Southeast", value: "Asia Southeast" },
           { name: "Others", value: "Others" }
         )
     )
@@ -86,8 +90,8 @@ module.exports = {
 
       const [hour, period] = hourValue.split("-");
 
-      const tzList = regions[regionValue].filter(tz =>
-        tz.currentHour === hour && tz.currentPeriod === period
+      const tzList = regions[regionValue].filter(
+        tz => tz.currentHour === hour && tz.currentPeriod === period
       );
 
       const choices = tzList.map(tz => ({

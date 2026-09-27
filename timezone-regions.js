@@ -3,13 +3,41 @@ const moment = require("moment-timezone");
 
 const allTimezones = moment.tz.names();
 
-// Minimal region classifier
+// Improved region classifier with Asia sub-regions
 function classify(iana) {
   if (iana.startsWith("America/")) return "Americas";
   if (iana.startsWith("Europe/")) return "Europe";
-  if (iana.startsWith("Asia/")) return "Asia";
-  if (iana.startsWith("Australia/") || iana.startsWith("Pacific/")) return "Oceania";
   if (iana.startsWith("Africa/")) return "Africa";
+  if (iana.startsWith("Australia/") || iana.startsWith("Pacific/")) return "Oceania";
+
+  if (iana.startsWith("Asia/")) {
+    const city = iana.split("/")[1];
+
+    // Asia West
+    if ([
+      "Dubai","Riyadh","Baghdad","Jerusalem","Amman","Beirut","Qatar","Bahrain",
+      "Muscat","Tehran","Yerevan","Tbilisi"
+    ].includes(city)) return "Asia West";
+
+    // Asia Central
+    if ([
+      "Tashkent","Almaty","Bishkek","Dushanbe","Ashgabat"
+    ].includes(city)) return "Asia Central";
+
+    // Asia South
+    if ([
+      "Kolkata","Kathmandu","Colombo","Maldives","Karachi","Dhaka"
+    ].includes(city)) return "Asia South";
+
+    // Asia East
+    if ([
+      "Tokyo","Seoul","Shanghai","Taipei","Ulaanbaatar"
+    ].includes(city)) return "Asia East";
+
+    // Asia Southeast (default for remaining Asia)
+    return "Asia Southeast";
+  }
+
   return "Others";
 }
 
@@ -26,9 +54,9 @@ for (const iana of allTimezones) {
     iana,
     label: iana.replace(/_/g, " "),
     offset: "UTC" + now.format("Z"),
-    currentHour: now.format("h"),      // "2"
-    currentPeriod: now.format("A"),    // "PM"
-    currentTime: now.format("h:mm A")  // "2:15 PM"
+    currentHour: now.format("h"),
+    currentPeriod: now.format("A"),
+    currentTime: now.format("h:mm A")
   });
 }
 
