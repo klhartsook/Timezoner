@@ -1,10 +1,14 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
 const moment = require("moment-timezone");
 const fs = require("fs");
-const path = require("path");
 
-// Path to your saved timezone data
-const tzPath = path.join(__dirname, "../data/timezones.json");
+// Railway persistent timezone file
+const tzPath = "/data/timezones.json";
+
+// Ensure file exists
+if (!fs.existsSync(tzPath)) {
+  fs.writeFileSync(tzPath, "{}");
+}
 
 module.exports = {
   data: new SlashCommandBuilder()

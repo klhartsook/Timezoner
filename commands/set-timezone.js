@@ -3,10 +3,14 @@ const moment = require("moment-timezone");
 const { hourList } = require("../timezone-hours");
 const { regions } = require("../timezone-regions");
 const fs = require("fs");
-const path = require("path");
 
-// Path to your saved timezone data
-const tzPath = path.join(__dirname, "../data/timezones.json");
+// Railway persistent timezone file
+const tzPath = "/data/timezones.json";
+
+// Ensure file exists
+if (!fs.existsSync(tzPath)) {
+  fs.writeFileSync(tzPath, "{}");
+}
 
 module.exports = {
   data: new SlashCommandBuilder()

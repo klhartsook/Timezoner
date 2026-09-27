@@ -5,20 +5,32 @@ const {
   MessageFlags
 } = require("discord.js");
 const moment = require("moment-timezone");
+const fs = require("fs");
 const { timezoneData } = require("../timezone-definitions");
 
-function getTimezoneFromMember(member) {
-  if (!member) return null;
+// Railway persistent timezone file
+const tzPath = "/data/timezones.json";
 
-  const roleNameToIana = {};
+// Ensure file exists
+if (!fs.existsSync(tzPath)) {
+  fs.writeFileSync(tzPath, "{}");
+}
+
+// Convert role/alias/offset → IANA
+function lookupIanaFromRoleOrAlias(name) {
+  name = name.toLowerCase();
+
   for (const tz of Object.values(timezoneData)) {
-    for (const roleName of [tz.offset, ...(tz.aliases || [])]) {
-      roleNameToIana[roleName] = tz.iana;
+    // Match offset (e.g., "UTC-7")
+    if (tz.offset.toLowerCase() === name) return tz.iana;
+
+    // Match aliases (e.g., "mst", "arizona", "phoenix")
+    if (tz.aliases && tz.aliases.some(a => a.toLowerCase() === name)) {
+      return tz.iana;
     }
   }
 
-  const timezoneRole = member.roles.cache.find(role => roleNameToIana[role.name]);
-  return timezoneRole ? roleNameToIana[timezoneRole.name] : null;
+  return null;
 }
 
 module.exports = {
@@ -29,34 +41,48 @@ module.exports = {
   async execute(interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const db = interaction.client.db;
     const target = interaction.targetUser;
     const guild = interaction.guild;
 
+    // Load timezone database
+    let db = {};
+    try {
+      db = JSON.parse(fs.readFileSync(tzPath, "utf8"));
+    } catch {
+      db = {};
+    }
+
+    let iana = null;
+
+    // 1️⃣ Try role-based lookup (if you still use roles)
     let member = null;
     if (guild) {
       member = await guild.members.fetch(target.id).catch(() => null);
     }
 
-    let iana = getTimezoneFromMember(member);
-
-    if (!iana) {
-      const row = await new Promise((resolve, reject) => {
-        db.get("SELECT tz FROM timezones WHERE user = ?", [target.id], (err, r) => {
-          if (err) return reject(err);
-          resolve(r);
-        });
-      });
-
-      if (!row) {
-        return interaction.editReply({
-          content: `❌ ${target.username} has not set a timezone.`
-        });
+    if (member) {
+      const roleNames = member.roles.cache.map(r => r.name);
+      for (const roleName of roleNames) {
+        const found = lookupIanaFromRoleOrAlias(roleName);
+        if (found) {
+          iana = found;
+          break;
+        }
       }
-
-      iana = row.tz;
     }
 
+    // 2️⃣ Fallback to stored JSON timezone
+    if (!iana) {
+      iana = db[target.id];
+    }
+
+    if (!iana) {
+      return interaction.editReply({
+        content: `❌ ${target.username} has not set a timezone.`
+      });
+    }
+
+    // Convert to local time
     let localTime;
     try {
       localTime = moment().tz(iana).format("h:mm A");
