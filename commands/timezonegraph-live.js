@@ -11,27 +11,21 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
-
-    // ---------- Robust preflight checks ----------
+    // ---------- Minimal preflight checks (no heavy awaits) ----------
     if (!interaction.isChatInputCommand()) {
       console.log("⚠ Ignoring non-chat-input interaction");
       return;
     }
-
     if (!interaction.token) {
       console.log("⚠ Ignoring stale interaction (missing token)");
       return;
     }
-
     if (interaction.deferred || interaction.replied) {
       console.log("⚠ Interaction already handled, ignoring");
       return;
     }
 
-    // Debug line to inspect interaction state right before REST call
-    console.log("DBG interaction id:", interaction.id, "tokenPresent:", !!interaction.token, "deferred:", interaction.deferred, "replied:", interaction.replied);
-
-    // ---------- Defensive defer with explicit error handling ----------
+    // ---------- Defer immediately to extend the interaction window ----------
     try {
       await interaction.deferReply();
     } catch (err) {
@@ -47,15 +41,16 @@ module.exports = {
       return;
     }
 
-    // ---------- Command main logic ----------
+    // ---------- Now do heavier work safely (after defer) ----------
     const guild = interaction.guild;
     try {
+      // Optional: fetch members if your engine needs them (this can be slow)
       await guild.members.fetch();
     } catch (err) {
       console.warn("Failed to fetch guild members (continuing):", err);
     }
 
-    // Load timezone DB (use a robust relative path)
+    // Load timezone DB
     const tzPath = path.join(__dirname, "..", "data", "timezones.json");
     let db = {};
     try {
@@ -84,7 +79,7 @@ module.exports = {
       return;
     }
 
-    // Send initial message
+    // Send initial message (edit the deferred reply)
     let message;
     try {
       message = await interaction.editReply({ embeds });
