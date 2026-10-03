@@ -1,28 +1,40 @@
-// index.js (complete minimal example with defensive global handler)
-// Adjust intents and other setup to match your existing project if needed.
-
+// index.js
 const { Client, Collection, GatewayIntentBits } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+// Utilities used by the refresh loop
+const { buildTimezoneGroups, buildEmbeds } = require("./utils/timezonegraph-engine");
+
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+});
+
 client.commands = new Collection();
 client.liveGraph = null;
 
-// Load commands
+// -------------------- Load commands --------------------
 const commandsPath = path.join(__dirname, "commands");
-for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith(".js"))) {
+for (const file of fs.readdirSync(commandsPath).filter((f) => f.endsWith(".js"))) {
   const cmd = require(path.join(commandsPath, file));
   if (cmd && cmd.data && cmd.execute) {
     client.commands.set(cmd.data.name, cmd);
   }
 }
 
+// -------------------- Ready handler --------------------
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
+
+  // Start periodic refresh AFTER the client is ready
+  console.log("clientReady: starting refresh interval");
+  setInterval(() => {
+    console.log("DEBUG: refresh interval tick");
+    refreshLiveGraph().catch((e) => console.error("Refresh loop top-level error:", e));
+  }, 60_000);
 });
 
-// Defensive global interaction handler
+// -------------------- Interaction handler --------------------
 client.on("interactionCreate", async (interaction) => {
   // Global preflight: only handle chat input commands and ignore obviously stale interactions
   if (!interaction.isChatInputCommand() || !interaction.token) {
@@ -57,18 +69,62 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// Example refresh loop snippet (if you have a loop that edits the live message, use this pattern)
-// This is a minimal example showing how to clear client.liveGraph on message/interaction errors.
+// -------------------- Refresh loop --------------------
 async function refreshLiveGraph() {
-  if (!client.liveGraph) return;
+  if (!client.liveGraph) {
+    console.log("DEBUG: no liveGraph set, skipping refresh");
+    return;
+  }
+
+  console.log("DEBUG: refreshing liveGraph", client.liveGraph);
+
   try {
     const channel = await client.channels.fetch(client.liveGraph.channelId);
+    if (!channel) {
+      console.log("DEBUG: channel not found, clearing liveGraph");
+      client.liveGraph = null;
+      return;
+    }
+
     const message = await channel.messages.fetch(client.liveGraph.messageId);
-    // ... build new embeds and edit message ...
-    // await message.edit({ embeds: newEmbeds });
+    if (!message) {
+      console.log("DEBUG: message not found, clearing liveGraph");
+      client.liveGraph = null;
+      return;
+    }
+
+    // Load timezone DB
+    const tzPath = path.join(__dirname, "data", "timezones.json");
+    let db = {};
+    try {
+      if (fs.existsSync(tzPath)) {
+        db = JSON.parse(fs.readFileSync(tzPath, "utf8"));
+      } else {
+        db = {};
+      }
+    } catch (err) {
+      console.error("Failed to read timezone DB during refresh, continuing with empty DB:", err);
+      db = {};
+    }
+
+    // Build new embeds
+    let groups, embeds;
+    try {
+      const guild = message.guild;
+      groups = buildTimezoneGroups(guild, db);
+      embeds = buildEmbeds(guild, groups);
+    } catch (err) {
+      console.error("Failed to build timezone graph embeds during refresh:", err);
+      return;
+    }
+
+    console.log("DEBUG: editing message with new embeds");
+    await message.edit({ embeds });
+    console.log("✅ refresh succeeded at", new Date().toISOString());
   } catch (err) {
     console.error("Refresh loop error:", err);
-    // Clear liveGraph on known message/interaction errors so the loop stops trying
+
+    // Clear liveGraph on known unrecoverable errors so the loop stops trying
     if (err?.code === 10008 || err?.code === 10062) {
       console.log("Clearing liveGraph due to message/interaction error");
       client.liveGraph = null;
@@ -76,10 +132,10 @@ async function refreshLiveGraph() {
   }
 }
 
-// Start a periodic refresh if desired (example: every 60 seconds)
-setInterval(() => {
-  refreshLiveGraph().catch(e => console.error("Refresh loop top-level error:", e));
-}, 60_000);
+// -------------------- Start bot --------------------
+if (!process.env.DISCORD_TOKEN) {
+  console.error("DISCORD_TOKEN is not set in environment variables.");
+  process.exit(1);
+}
 
-// Login
 client.login(process.env.DISCORD_TOKEN);
