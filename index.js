@@ -52,7 +52,7 @@ for (const file of fs.readdirSync(commandsPath)) {
   }
 }
 
-// --- JSON Timezone Database (REPLACES OLD SQLITE)
+// --- JSON Timezone Database
 const tzPath = path.join(__dirname, "data", "timezones.json");
 
 // Ensure folder exists
@@ -63,7 +63,6 @@ if (!fs.existsSync(tzPath)) {
   fs.writeFileSync(tzPath, "{}");
 }
 
-// Attach JSON path to client for commands that need it
 client.tzPath = tzPath;
 
 // --- Load events
@@ -103,7 +102,7 @@ client.on("interactionCreate", async (interaction) => {
       return;
     }
 
-    // USER CONTEXT MENU COMMAND (right-click → Apps → Local Time)
+    // USER CONTEXT MENU COMMAND
     if (interaction.isUserContextMenuCommand()) {
       const command = client.contextMenus.get(interaction.commandName);
       if (!command) return;
@@ -151,15 +150,15 @@ client.on("error", (err) => {
   console.error("Discord client error:", err);
 });
 
-// --- Ready (updated for v15)
-client.on("clientReady", () => {
+// --- Ready
+client.on("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
-// --- Live timezone graph auto-refresh (every 5 minutes)
+// --- Live timezone graph auto-refresh (every 1 minute)
 setInterval(async () => {
   const live = client.liveGraph;
-  if (!live) return; // No live graph running
+  if (!live) return;
 
   try {
     const guild = await client.guilds.fetch(live.guildId);
@@ -168,18 +167,27 @@ setInterval(async () => {
     const channel = await client.channels.fetch(live.channelId);
     const message = await channel.messages.fetch(live.messageId);
 
-    // Import utilities
-    const { buildTimezoneGroups, buildEmbeds } = require("./utils/timezonegraph-utils");
+    // Load timezone DB
+    let db = {};
+    try {
+      db = JSON.parse(fs.readFileSync(client.tzPath, "utf8"));
+    } catch {
+      db = {};
+    }
 
-    const groups = buildTimezoneGroups(guild.members.cache);
+    // Use the SAME engine as the command
+    const { buildTimezoneGroups, buildEmbeds } = require("./utils/timezonegraph-engine");
+
+    const groups = buildTimezoneGroups(guild, db);
     const embeds = buildEmbeds(guild, groups);
 
     await message.edit({ embeds });
+    console.log("✅ Timezone graph refreshed");
 
   } catch (err) {
     console.error("Live graph update failed:", err);
   }
-}, 5 * 60 * 1000); // every 5 minutes
+}, 1 * 60 * 1000); // every 1 minute
 
 // --- Login
 const token = process.env.DISCORD_TOKEN;
