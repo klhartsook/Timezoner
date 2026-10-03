@@ -13,49 +13,37 @@ module.exports = {
   async execute(interaction) {
 
     // ---------- Robust preflight checks ----------
-    // Only handle chat input (slash) commands here
     if (!interaction.isChatInputCommand()) {
       console.log("⚠ Ignoring non-chat-input interaction");
       return;
     }
 
-    // If token is missing or falsy, the interaction is stale/invalid
     if (!interaction.token) {
       console.log("⚠ Ignoring stale interaction (missing token)");
       return;
     }
 
-    // If already deferred or replied, nothing to do
     if (interaction.deferred || interaction.replied) {
       console.log("⚠ Interaction already handled, ignoring");
       return;
     }
 
+    // Debug line to inspect interaction state right before REST call
+    console.log("DBG interaction id:", interaction.id, "tokenPresent:", !!interaction.token, "deferred:", interaction.deferred, "replied:", interaction.replied);
+
     // ---------- Defensive defer with explicit error handling ----------
     try {
       await interaction.deferReply();
     } catch (err) {
-      // Known Discord API failure: Unknown interaction
-      if (err && err.code === 10062) {
+      if (err?.code === 10062) {
         console.log("⚠ deferReply failed: Unknown interaction (10062). Ignoring.");
         return;
       }
-
-      // Known Discord API failure: Interaction already acknowledged
-      if (err && err.code === 40060) {
+      if (err?.code === 40060) {
         console.log("⚠ deferReply failed: Interaction already acknowledged (40060). Ignoring.");
         return;
       }
-
-      // Unexpected error — log and attempt a safe ephemeral reply if possible
       console.error("Unexpected error during deferReply:", err);
-      try {
-        if (!interaction.replied && !interaction.deferred && interaction.token) {
-          await interaction.reply({ content: "❌ There was an error executing this command.", ephemeral: true });
-        }
-      } catch (replyErr) {
-        console.error("Failed to send error reply after deferReply failure:", replyErr);
-      }
       return;
     }
 
@@ -81,7 +69,7 @@ module.exports = {
       db = {};
     }
 
-    // Build graph (keep original engine usage)
+    // Build graph
     let groups, embeds;
     try {
       groups = buildTimezoneGroups(guild, db);
@@ -101,13 +89,11 @@ module.exports = {
     try {
       message = await interaction.editReply({ embeds });
     } catch (err) {
-      // If editing the deferred reply fails because the interaction became invalid,
-      // handle known error codes gracefully and stop.
-      if (err && err.code === 10062) {
+      if (err?.code === 10062) {
         console.log("⚠ editReply failed: Unknown interaction (10062). Aborting.");
         return;
       }
-      if (err && err.code === 40060) {
+      if (err?.code === 40060) {
         console.log("⚠ editReply failed: Interaction already acknowledged (40060). Aborting.");
         return;
       }

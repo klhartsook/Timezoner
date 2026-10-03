@@ -1,209 +1,85 @@
-// index.js
-const {
-  Client,
-  GatewayIntentBits,
-  Collection,
-  MessageFlags,
-  Partials,
-  ApplicationCommandType
-} = require("discord.js");
+// index.js (complete minimal example with defensive global handler)
+// Adjust intents and other setup to match your existing project if needed.
+
+const { Client, Collection, GatewayIntentBits } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 
-// --- Create client
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMessageReactions
-  ],
-  partials: [
-    Partials.Message,
-    Partials.Reaction,
-    Partials.User,
-    Partials.Channel
-  ]
-});
-
-// --- Live timezone graph storage
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+client.commands = new Collection();
 client.liveGraph = null;
 
-// --- Command collections
-client.commands = new Collection();
-client.contextMenus = new Collection();
-
-// --- Load commands
+// Load commands
 const commandsPath = path.join(__dirname, "commands");
-for (const file of fs.readdirSync(commandsPath)) {
-  if (!file.endsWith(".js")) continue;
-
-  const command = require(path.join(commandsPath, file));
-  if (!command || !command.data) continue;
-
-  if (command.data.type === undefined || command.data.type === 1) {
-    client.commands.set(command.data.name, command);
-  }
-
-  if (command.data.type === ApplicationCommandType.User) {
-    client.contextMenus.set(command.data.name, command);
+for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith(".js"))) {
+  const cmd = require(path.join(commandsPath, file));
+  if (cmd && cmd.data && cmd.execute) {
+    client.commands.set(cmd.data.name, cmd);
   }
 }
 
-// --- JSON Timezone Database
-const tzPath = path.join(__dirname, "data", "timezones.json");
-fs.mkdirSync(path.dirname(tzPath), { recursive: true });
-if (!fs.existsSync(tzPath)) fs.writeFileSync(tzPath, "{}");
-client.tzPath = tzPath;
+client.once("ready", () => {
+  console.log(`Logged in as ${client.user.tag}`);
+});
 
-// --- Load events
-const possibleEventsPaths = [
-  path.join(__dirname, "events"),
-  path.join(__dirname, "Events")
-];
-const eventsPath = possibleEventsPaths.find(p => fs.existsSync(p));
-if (eventsPath) {
-  for (const file of fs.readdirSync(eventsPath)) {
-    if (!file.endsWith(".js")) continue;
-    const event = require(path.join(eventsPath, file));
-    if (typeof event === "function") {
-      try {
-        event(client);
-      } catch (err) {
-        console.error(`Error loading event file ${file}:`, err);
-      }
-    }
-  }
-}
-
-// --- Interaction handler
+// Defensive global interaction handler
 client.on("interactionCreate", async (interaction) => {
+  // Global preflight: only handle chat input commands and ignore obviously stale interactions
+  if (!interaction.isChatInputCommand() || !interaction.token) {
+    console.log("⚠ Ignoring non-chat-input or stale interaction at global handler");
+    return;
+  }
+
+  const command = client.commands.get(interaction.commandName);
+  if (!command) return;
+
   try {
-    // ⭐ GUARD 1 — Ignore stale interactions with no token
-    if (!interaction.token) {
-      console.log("⚠ Ignoring stale interaction (no token)");
-      return;
-    }
-
-    // ⭐ GUARD 2 — Ignore interactions that cannot be replied to
-    if (!interaction.isRepliable()) {
-      console.log("⚠ Ignoring non-repliable interaction");
-      return;
-    }
-
-    // AUTOCOMPLETE
-    if (interaction.isAutocomplete()) {
-      const command = client.commands.get(interaction.commandName);
-      if (!command || !command.autocomplete) return;
-      if (interaction.responded || interaction.deferred) return;
-
-      try {
-        await command.autocomplete(interaction);
-      } catch (err) {
-        console.error("Autocomplete handler error:", err);
-      }
-      return;
-    }
-
-    // USER CONTEXT MENU COMMAND
-    if (interaction.isUserContextMenuCommand()) {
-      const command = client.contextMenus.get(interaction.commandName);
-      if (!command) return;
-
-      await command.execute(interaction);
-      return;
-    }
-
-    // SLASH COMMANDS
-    if (interaction.isChatInputCommand()) {
-      const command = client.commands.get(interaction.commandName);
-      if (!command) return;
-
-      await command.execute(interaction);
-      return;
-    }
-
+    await command.execute(interaction);
   } catch (err) {
     console.error("Command error:", err);
 
+    // Defensive: only attempt to reply if the interaction still looks usable
+    if (!interaction || !interaction.token) {
+      console.log("⚠ Not sending error reply: interaction missing token or is stale.");
+      return;
+    }
+
+    if (interaction.deferred || interaction.replied) {
+      console.log("⚠ Not sending error reply: interaction already acknowledged.");
+      return;
+    }
+
     try {
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
-          content: "❌ There was an error executing this command.",
-          flags: MessageFlags.Ephemeral
-        });
-      } else {
-        await interaction.followUp({
-          content: "❌ There was an error executing this command.",
-          flags: MessageFlags.Ephemeral
-        });
-      }
-    } catch (sendErr) {
-      console.error("Error sending error reply:", sendErr);
+      await interaction.reply({ content: "❌ There was an error executing this command.", ephemeral: true });
+    } catch (replyErr) {
+      console.error("Failed to send error reply (ignored):", replyErr);
     }
   }
 });
 
-// --- Global error logging
-process.on("unhandledRejection", (err) => {
-  console.error("Unhandled promise rejection:", err);
-});
-
-client.on("error", (err) => {
-  console.error("Discord client error:", err);
-});
-
-// --- Ready
-client.on("clientReady", () => {
-  console.log(`Logged in as ${client.user.tag}`);
-  client.liveGraph = null; // ⭐ Reset stale graph on startup
-});
-
-// --- Live timezone graph auto-refresh (every 1 minute)
-setInterval(async () => {
-  const live = client.liveGraph;
-  if (!live) return;
-
+// Example refresh loop snippet (if you have a loop that edits the live message, use this pattern)
+// This is a minimal example showing how to clear client.liveGraph on message/interaction errors.
+async function refreshLiveGraph() {
+  if (!client.liveGraph) return;
   try {
-    const guild = await client.guilds.fetch(live.guildId);
-    await guild.members.fetch();
-
-    const channel = await client.channels.fetch(live.channelId);
-    const message = await channel.messages.fetch(live.messageId);
-
-    // Load timezone DB
-    let db = {};
-    try {
-      db = JSON.parse(fs.readFileSync(client.tzPath, "utf8"));
-    } catch {
-      db = {};
-    }
-
-    // Use the SAME engine as the command
-    const { buildTimezoneGroups, buildEmbeds } = require("./utils/timezonegraph-engine");
-
-    const groups = buildTimezoneGroups(guild, db);
-    const embeds = buildEmbeds(guild, groups);
-
-    await message.edit({ embeds });
-    console.log("✅ Timezone graph refreshed");
-
+    const channel = await client.channels.fetch(client.liveGraph.channelId);
+    const message = await channel.messages.fetch(client.liveGraph.messageId);
+    // ... build new embeds and edit message ...
+    // await message.edit({ embeds: newEmbeds });
   } catch (err) {
-    console.error("Live graph update failed:", err);
-
-    // ⭐ CRITICAL FIX — stop refreshing stale/deleted messages
-    client.liveGraph = null;
+    console.error("Refresh loop error:", err);
+    // Clear liveGraph on known message/interaction errors so the loop stops trying
+    if (err?.code === 10008 || err?.code === 10062) {
+      console.log("Clearing liveGraph due to message/interaction error");
+      client.liveGraph = null;
+    }
   }
-}, 1 * 60 * 1000);
-
-// --- Login
-const token = process.env.DISCORD_TOKEN;
-if (!token) {
-  console.error("Missing DISCORD_TOKEN environment variable. Set it and restart the bot.");
-  process.exit(1);
 }
 
-client.login(token).catch(err => {
-  console.error("Failed to login:", err);
-  process.exit(1);
-});
+// Start a periodic refresh if desired (example: every 60 seconds)
+setInterval(() => {
+  refreshLiveGraph().catch(e => console.error("Refresh loop top-level error:", e));
+}, 60_000);
+
+// Login
+client.login(process.env.DISCORD_TOKEN);
