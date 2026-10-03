@@ -10,9 +10,19 @@ module.exports = {
 
   async execute(interaction) {
 
-    // ⭐ GUARD — Ignore expired interactions
-    if (!interaction.isRepliable()) {
-      console.log("⚠ Ignoring non-repliable interaction in timezonegraph-live");
+    // ⭐ REAL GUARD — Ignore stale or invalid interactions
+    if (!interaction.isChatInputCommand()) {
+      console.log("⚠ Ignoring non-chat-input interaction");
+      return;
+    }
+
+    if (!interaction.token) {
+      console.log("⚠ Ignoring stale interaction (missing token)");
+      return;
+    }
+
+    if (interaction.deferred || interaction.replied) {
+      console.log("⚠ Interaction already handled, ignoring");
       return;
     }
 
