@@ -26,6 +26,9 @@ const client = new Client({
   ]
 });
 
+// --- Live timezone graph storage
+client.liveGraph = null;
+
 // --- Command collections
 client.commands = new Collection();       // Slash commands
 client.contextMenus = new Collection();   // Right-click user commands
@@ -152,6 +155,31 @@ client.on("error", (err) => {
 client.on("clientReady", () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
+
+// --- Live timezone graph auto-refresh (every 5 minutes)
+setInterval(async () => {
+  const live = client.liveGraph;
+  if (!live) return; // No live graph running
+
+  try {
+    const guild = await client.guilds.fetch(live.guildId);
+    await guild.members.fetch();
+
+    const channel = await client.channels.fetch(live.channelId);
+    const message = await channel.messages.fetch(live.messageId);
+
+    // Import utilities
+    const { buildTimezoneGroups, buildEmbeds } = require("./utils/timezonegraph-utils");
+
+    const groups = buildTimezoneGroups(guild.members.cache);
+    const embeds = buildEmbeds(guild, groups);
+
+    await message.edit({ embeds });
+
+  } catch (err) {
+    console.error("Live graph update failed:", err);
+  }
+}, 5 * 60 * 1000); // every 5 minutes
 
 // --- Login
 const token = process.env.DISCORD_TOKEN;
