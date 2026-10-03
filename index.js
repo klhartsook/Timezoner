@@ -79,6 +79,19 @@ if (eventsPath) {
 // --- Interaction handler
 client.on("interactionCreate", async (interaction) => {
   try {
+    // ⭐ GUARD 1 — Ignore stale interactions with no token
+    if (!interaction.token) {
+      console.log("⚠ Ignoring stale interaction (no token)");
+      return;
+    }
+
+    // ⭐ GUARD 2 — Ignore interactions that cannot be replied to
+    if (!interaction.isRepliable()) {
+      console.log("⚠ Ignoring non-repliable interaction");
+      return;
+    }
+
+    // AUTOCOMPLETE
     if (interaction.isAutocomplete()) {
       const command = client.commands.get(interaction.commandName);
       if (!command || !command.autocomplete) return;
@@ -92,6 +105,7 @@ client.on("interactionCreate", async (interaction) => {
       return;
     }
 
+    // USER CONTEXT MENU COMMAND
     if (interaction.isUserContextMenuCommand()) {
       const command = client.contextMenus.get(interaction.commandName);
       if (!command) return;
@@ -100,6 +114,7 @@ client.on("interactionCreate", async (interaction) => {
       return;
     }
 
+    // SLASH COMMANDS
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
@@ -141,6 +156,7 @@ client.on("error", (err) => {
 // --- Ready
 client.on("clientReady", () => {
   console.log(`Logged in as ${client.user.tag}`);
+  client.liveGraph = null; // ⭐ Reset stale graph on startup
 });
 
 // --- Live timezone graph auto-refresh (every 1 minute)
@@ -175,7 +191,7 @@ setInterval(async () => {
   } catch (err) {
     console.error("Live graph update failed:", err);
 
-    // ⭐ CRITICAL FIX: stop refreshing stale/deleted messages
+    // ⭐ CRITICAL FIX — stop refreshing stale/deleted messages
     client.liveGraph = null;
   }
 }, 1 * 60 * 1000);

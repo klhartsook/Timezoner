@@ -5,10 +5,17 @@ const fs = require("fs");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("timezonegraph-live")
-    .setDescription("Post a live-updating timezone graph that refreshes every 5 minutes.")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator), // ⭐ ADMIN ONLY
+    .setDescription("Post a live-updating timezone graph that refreshes every 1 minute.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
+
+    // ⭐ GUARD — Ignore expired interactions
+    if (!interaction.isRepliable()) {
+      console.log("⚠ Ignoring non-repliable interaction in timezonegraph-live");
+      return;
+    }
+
     await interaction.deferReply();
 
     const guild = interaction.guild;
