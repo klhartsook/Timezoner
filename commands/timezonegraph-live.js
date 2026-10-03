@@ -1,10 +1,12 @@
-const { SlashCommandBuilder, MessageFlags } = require("discord.js");
+const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } = require("discord.js");
 const { buildTimezoneGroups, buildEmbeds } = require("../utils/timezonegraph-engine");
+const fs = require("fs");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("timezonegraph-live")
-    .setDescription("Post a live-updating timezone graph that refreshes every 5 minutes."),
+    .setDescription("Post a live-updating timezone graph that refreshes every 5 minutes.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator), // ⭐ ADMIN ONLY
 
   async execute(interaction) {
     await interaction.deferReply();
@@ -13,9 +15,7 @@ module.exports = {
     await guild.members.fetch();
 
     // Load timezone DB
-    const fs = require("fs");
     const tzPath = "/data/timezones.json";
-
     let db = {};
     try {
       db = JSON.parse(fs.readFileSync(tzPath, "utf8"));
