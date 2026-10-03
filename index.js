@@ -30,8 +30,8 @@ const client = new Client({
 client.liveGraph = null;
 
 // --- Command collections
-client.commands = new Collection();       // Slash commands
-client.contextMenus = new Collection();   // Right-click user commands
+client.commands = new Collection();
+client.contextMenus = new Collection();
 
 // --- Load commands
 const commandsPath = path.join(__dirname, "commands");
@@ -41,12 +41,10 @@ for (const file of fs.readdirSync(commandsPath)) {
   const command = require(path.join(commandsPath, file));
   if (!command || !command.data) continue;
 
-  // Slash commands
   if (command.data.type === undefined || command.data.type === 1) {
     client.commands.set(command.data.name, command);
   }
 
-  // User context menu commands (right-click)
   if (command.data.type === ApplicationCommandType.User) {
     client.contextMenus.set(command.data.name, command);
   }
@@ -54,15 +52,8 @@ for (const file of fs.readdirSync(commandsPath)) {
 
 // --- JSON Timezone Database
 const tzPath = path.join(__dirname, "data", "timezones.json");
-
-// Ensure folder exists
 fs.mkdirSync(path.dirname(tzPath), { recursive: true });
-
-// Ensure file exists
-if (!fs.existsSync(tzPath)) {
-  fs.writeFileSync(tzPath, "{}");
-}
-
+if (!fs.existsSync(tzPath)) fs.writeFileSync(tzPath, "{}");
 client.tzPath = tzPath;
 
 // --- Load events
@@ -88,7 +79,6 @@ if (eventsPath) {
 // --- Interaction handler
 client.on("interactionCreate", async (interaction) => {
   try {
-    // AUTOCOMPLETE
     if (interaction.isAutocomplete()) {
       const command = client.commands.get(interaction.commandName);
       if (!command || !command.autocomplete) return;
@@ -102,7 +92,6 @@ client.on("interactionCreate", async (interaction) => {
       return;
     }
 
-    // USER CONTEXT MENU COMMAND
     if (interaction.isUserContextMenuCommand()) {
       const command = client.contextMenus.get(interaction.commandName);
       if (!command) return;
@@ -111,7 +100,6 @@ client.on("interactionCreate", async (interaction) => {
       return;
     }
 
-    // SLASH COMMANDS
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
@@ -151,7 +139,7 @@ client.on("error", (err) => {
 });
 
 // --- Ready
-client.on("ready", () => {
+client.on("clientReady", () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
@@ -186,8 +174,11 @@ setInterval(async () => {
 
   } catch (err) {
     console.error("Live graph update failed:", err);
+
+    // ⭐ CRITICAL FIX: stop refreshing stale/deleted messages
+    client.liveGraph = null;
   }
-}, 1 * 60 * 1000); // every 1 minute
+}, 1 * 60 * 1000);
 
 // --- Login
 const token = process.env.DISCORD_TOKEN;
