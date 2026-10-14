@@ -60,4 +60,7 @@ for (const iana of allTimezones) {
   });
 }
 
-module.exports = { regions };
+// ⭐ FIX: Clone regions so moment-timezone mutations don't affect autocomplete
+const clonedRegions = JSON.parse(JSON.stringify(regions));
+
+module.exports = { regions: clonedRegions };
