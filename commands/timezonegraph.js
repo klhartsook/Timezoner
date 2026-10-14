@@ -1,12 +1,13 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
 const moment = require("moment-timezone");
 const fs = require("fs");
+const path = require("path");
 
-// IMPORTANT: Use Railway Volume path
-const tzPath = "/data/timezones.json";
+// ✅ Safe timezone file path (works on Windows + Railway)
+const tzPath = path.join(__dirname, "..", "data", "timezones.json");
 
-// Ensure the file exists in Railway persistent storage
-fs.mkdirSync("/data", { recursive: true });
+// Ensure the file exists
+fs.mkdirSync(path.join(__dirname, "..", "data"), { recursive: true });
 if (!fs.existsSync(tzPath)) {
   fs.writeFileSync(tzPath, "{}");
 }
@@ -18,11 +19,9 @@ function buildTimezoneGroups(guild, db) {
     const member = guild.members.cache.get(userId);
     if (!member) continue;
 
-    // Get current local time for this timezone
     const localTime = moment().tz(tz);
-    const timeLabel = localTime.format("h:mm A"); // e.g. "3:12 PM"
+    const timeLabel = localTime.format("h:mm A");
 
-    // Group by exact local time (hour + minute)
     if (!groups.has(timeLabel)) {
       groups.set(timeLabel, {
         timeLabel,
@@ -33,7 +32,6 @@ function buildTimezoneGroups(guild, db) {
     groups.get(timeLabel).members.push(member);
   }
 
-  // Sort chronologically by actual time
   const ordered = [...groups.values()].sort((a, b) => {
     const aTime = moment(a.timeLabel, "h:mm A");
     const bTime = moment(b.timeLabel, "h:mm A");
