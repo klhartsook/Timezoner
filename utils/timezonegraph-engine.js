@@ -83,6 +83,13 @@ function buildEmbeds(guild, groups) {
   // ✅ Add footer + "Last updated" field to force redraw
   if (embeds.length > 0) {
     const now = moment();
+    const secondsAgo = Math.floor((Date.now() % 60000) / 1000);
+
+    // Update description to mimic "as of X seconds ago"
+    embeds[0].setDescription(
+      `Members grouped by their exact current local time.\n\n_as of ${secondsAgo} seconds ago_`
+    );
+
     embeds[0].setFooter({ text: `Refreshed ${now.fromNow()}` });
     embeds[0].addFields({
       name: "⏱ Last updated",
