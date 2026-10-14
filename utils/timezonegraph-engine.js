@@ -31,7 +31,7 @@ function buildTimezoneGroups(guild, db) {
   return ordered;
 }
 
-// --- Build embeds with chunking
+// --- Build embeds with chunking + footer timestamp
 function buildEmbeds(guild, groups) {
   const embeds = [];
   let current = new EmbedBuilder()
@@ -78,8 +78,14 @@ function buildEmbeds(guild, groups) {
   }
 
   if (current.data.fields?.length) embeds.push(current);
+
+  // ✅ Add footer timestamp to the first embed
+  if (embeds.length > 0) {
+    const now = moment();
+    embeds[0].setFooter({ text: `Refreshed ${now.fromNow()}` });
+  }
+
   return embeds;
 }
 
 module.exports = { buildTimezoneGroups, buildEmbeds };
-    
