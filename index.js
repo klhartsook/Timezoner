@@ -81,20 +81,16 @@ async function refreshLiveGraph() {
     const channel = await client.channels.fetch(client.liveGraph.channelId);
     const message = await channel.messages.fetch(client.liveGraph.messageId);
 
-    // Reload timezone DB fresh
+    // Reload timezone DB fresh each tick
     const tzPath = path.join(__dirname, "data", "timezones.json");
     let db = {};
     if (fs.existsSync(tzPath)) {
       db = JSON.parse(fs.readFileSync(tzPath, "utf8"));
     }
 
+    // ✅ Rebuild groups fresh each refresh
     const groups = buildTimezoneGroups(message.guild, db);
     const embeds = buildEmbeds(message.guild, groups);
-
-    // Add footer timestamp
-    if (embeds.length > 0) {
-      embeds[0].setFooter({ text: `Last updated: ${new Date().toLocaleTimeString()}` });
-    }
 
     await message.edit({ embeds });
     console.log("✅ refresh succeeded at", new Date().toISOString());
