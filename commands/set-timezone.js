@@ -16,6 +16,15 @@ if (!fs.existsSync(tzPath)) {
   fs.writeFileSync(tzPath, "{}");
 }
 
+// ✅ Helper to catch autocomplete errors
+async function safeRespond(interaction, data) {
+  try {
+    await interaction.respond(data);
+  } catch (err) {
+    console.error("Autocomplete respond failed:", err);
+  }
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("set-timezone")
@@ -77,10 +86,10 @@ module.exports = {
     // ⭐ Hour autocomplete
     if (focused.name === "hour") {
       const ampm = interaction.options.getString("ampm");
-      if (!ampm) return interaction.respond([]);
+      if (!ampm) return safeRespond(interaction, []);
 
       const filteredHours = hourList.filter(h => h.value.endsWith(ampm));
-      return interaction.respond(filteredHours.slice(0, 25));
+      return safeRespond(interaction, filteredHours.slice(0, 25));
     }
 
     // ⭐ Timezone autocomplete
@@ -89,7 +98,7 @@ module.exports = {
       const regionValue = interaction.options.getString("region");
 
       if (!hourValue || !regionValue) {
-        return interaction.respond([]);
+        return safeRespond(interaction, []);
       }
 
       const [hour, period] = hourValue.split("-");
@@ -112,7 +121,7 @@ module.exports = {
         c.name.toLowerCase().includes(focused.value.toLowerCase())
       );
 
-      return interaction.respond(filtered.slice(0, 25));
+      return safeRespond(interaction, filtered.slice(0, 25));
     }
   },
 
