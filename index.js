@@ -36,12 +36,30 @@ client.once("ready", () => {
 
 // -------------------- Interaction handler --------------------
 client.on("interactionCreate", async (interaction) => {
-  // Global preflight: only handle chat input commands and ignore obviously stale interactions
-  if (!interaction.isChatInputCommand() || !interaction.token) {
+
+  // ⭐ FIX: Allow autocomplete interactions
+  if (
+    !interaction.isChatInputCommand() &&
+    !interaction.isAutocomplete()
+  ) {
     console.log("⚠ Ignoring non-chat-input or stale interaction at global handler");
     return;
   }
 
+  // ⭐ Handle autocomplete
+  if (interaction.isAutocomplete()) {
+    const command = client.commands.get(interaction.commandName);
+    if (!command || !command.autocomplete) return;
+
+    try {
+      await command.autocomplete(interaction);
+    } catch (err) {
+      console.error("Autocomplete error:", err);
+    }
+    return;
+  }
+
+  // ⭐ Handle normal slash commands
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
 
@@ -50,7 +68,6 @@ client.on("interactionCreate", async (interaction) => {
   } catch (err) {
     console.error("Command error:", err);
 
-    // Defensive: only attempt to reply if the interaction still looks usable
     if (!interaction || !interaction.token) {
       console.log("⚠ Not sending error reply: interaction missing token or is stale.");
       return;
@@ -124,7 +141,6 @@ async function refreshLiveGraph() {
   } catch (err) {
     console.error("Refresh loop error:", err);
 
-    // Clear liveGraph on known unrecoverable errors so the loop stops trying
     if (err?.code === 10008 || err?.code === 10062) {
       console.log("Clearing liveGraph due to message/interaction error");
       client.liveGraph = null;
