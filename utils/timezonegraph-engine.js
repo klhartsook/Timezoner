@@ -1,7 +1,7 @@
 const moment = require("moment-timezone");
 const { EmbedBuilder } = require("discord.js");
 
-// --- Build groups based on exact local time
+// --- Build groups based on exact local time (minute precision)
 function buildTimezoneGroups(guild, db) {
   const groups = new Map();
 
@@ -10,6 +10,7 @@ function buildTimezoneGroups(guild, db) {
     if (!member) continue;
 
     const localTime = moment().tz(tz);
+    // Group by minute precision only
     const timeLabel = localTime.format("h:mm A");
 
     if (!groups.has(timeLabel)) {
@@ -31,7 +32,7 @@ function buildTimezoneGroups(guild, db) {
   return ordered;
 }
 
-// --- Build embeds with chunking + footer timestamp
+// --- Build embeds with chunking + footer + last updated field
 function buildEmbeds(guild, groups) {
   const embeds = [];
   let current = new EmbedBuilder()
@@ -79,10 +80,14 @@ function buildEmbeds(guild, groups) {
 
   if (current.data.fields?.length) embeds.push(current);
 
-  // ✅ Add footer timestamp to the first embed
+  // ✅ Add footer + "Last updated" field to force redraw
   if (embeds.length > 0) {
     const now = moment();
     embeds[0].setFooter({ text: `Refreshed ${now.fromNow()}` });
+    embeds[0].addFields({
+      name: "⏱ Last updated",
+      value: now.format("h:mm:ss A")
+    });
   }
 
   return embeds;
