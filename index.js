@@ -26,7 +26,6 @@ for (const file of fs.readdirSync(commandsPath).filter((f) => f.endsWith(".js"))
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
 
-  // Start periodic refresh AFTER the client is ready
   console.log("clientReady: starting refresh interval");
   setInterval(() => {
     console.log("DEBUG: refresh interval tick");
@@ -37,7 +36,7 @@ client.once("ready", () => {
 // -------------------- Interaction handler --------------------
 client.on("interactionCreate", async (interaction) => {
 
-  // ⭐ FIX: Allow autocomplete interactions
+  // ⭐ FIX: Allow autocomplete AND slash commands
   if (
     !interaction.isChatInputCommand() &&
     !interaction.isAutocomplete()
@@ -46,7 +45,7 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
-  // ⭐ Handle autocomplete
+  // ⭐ Autocomplete handler
   if (interaction.isAutocomplete()) {
     const command = client.commands.get(interaction.commandName);
     if (!command || !command.autocomplete) return;
@@ -59,7 +58,7 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
-  // ⭐ Handle normal slash commands
+  // ⭐ Slash command handler
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
 
@@ -110,7 +109,6 @@ async function refreshLiveGraph() {
       return;
     }
 
-    // Load timezone DB
     const tzPath = path.join(__dirname, "data", "timezones.json");
     let db = {};
     try {
@@ -120,11 +118,10 @@ async function refreshLiveGraph() {
         db = {};
       }
     } catch (err) {
-      console.error("Failed to read timezone DB during refresh, continuing with empty DB:", err);
+      console.error("Failed to read timezone DB during refresh:", err);
       db = {};
     }
 
-    // Build new embeds
     let groups, embeds;
     try {
       const guild = message.guild;
