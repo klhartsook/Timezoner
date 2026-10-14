@@ -3,12 +3,13 @@ const moment = require("moment-timezone");
 const { hourList } = require("../timezone-hours");
 const { regions } = require("../timezone-regions");
 const fs = require("fs");
+const path = require("path");
 
-// Railway persistent timezone file
-const tzPath = "/data/timezones.json";
+// ✅ Safe timezone file path (works on Windows + Railway)
+const tzPath = path.join(__dirname, "..", "data", "timezones.json");
 
-// Ensure /data exists (fix for Windows)
-fs.mkdirSync("/data", { recursive: true });
+// Ensure /data exists
+fs.mkdirSync(path.join(__dirname, "..", "data"), { recursive: true });
 
 // Ensure timezone file exists
 if (!fs.existsSync(tzPath)) {
@@ -41,7 +42,7 @@ module.exports = {
         .setAutocomplete(true)
     )
 
-    // ⭐ Step 3 — Region (UPDATED)
+    // ⭐ Step 3 — Region
     .addStringOption(option =>
       option
         .setName("region")
@@ -82,7 +83,7 @@ module.exports = {
       return interaction.respond(filteredHours.slice(0, 25));
     }
 
-    // ⭐ Timezone autocomplete (Dynamic time filtering)
+    // ⭐ Timezone autocomplete
     if (focused.name === "timezone") {
       const hourValue = interaction.options.getString("hour");
       const regionValue = interaction.options.getString("region");
@@ -93,7 +94,6 @@ module.exports = {
 
       const [hour, period] = hourValue.split("-");
 
-      // Dynamically recalculate each timezone’s current hour and AM/PM
       const tzList = regions[regionValue].filter(tz => {
         const now = moment().tz(tz.iana);
         const currentHour = now.format("h");
@@ -101,7 +101,6 @@ module.exports = {
         return currentHour === hour && currentPeriod === period;
       });
 
-      // Sort by UTC offset for cleaner display
       tzList.sort((a, b) => a.offset.localeCompare(b.offset));
 
       const choices = tzList.map(tz => ({
@@ -120,7 +119,6 @@ module.exports = {
   async execute(interaction) {
     const timezoneValue = interaction.options.getString("timezone");
 
-    // ⭐ Load existing timezone database
     let db = {};
     try {
       db = JSON.parse(fs.readFileSync(tzPath, "utf8"));
@@ -128,10 +126,8 @@ module.exports = {
       db = {};
     }
 
-    // ⭐ Save timezone for this user
     db[interaction.user.id] = timezoneValue;
 
-    // ⭐ Write back to file
     fs.writeFileSync(tzPath, JSON.stringify(db, null, 2));
 
     await interaction.reply(
