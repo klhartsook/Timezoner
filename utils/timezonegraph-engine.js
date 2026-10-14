@@ -1,7 +1,7 @@
 const moment = require("moment-timezone");
 const { EmbedBuilder } = require("discord.js");
 
-// --- Build groups based on exact local time (minute precision)
+// --- Build groups based on exact local time (with seconds)
 function buildTimezoneGroups(guild, db) {
   const groups = new Map();
 
@@ -10,8 +10,7 @@ function buildTimezoneGroups(guild, db) {
     if (!member) continue;
 
     const localTime = moment().tz(tz);
-    // Group by minute precision only
-    const timeLabel = localTime.format("h:mm A");
+    const timeLabel = localTime.format("h:mm:ss A"); // include seconds
 
     if (!groups.has(timeLabel)) {
       groups.set(timeLabel, {
@@ -24,22 +23,21 @@ function buildTimezoneGroups(guild, db) {
   }
 
   const ordered = [...groups.values()].sort((a, b) => {
-    const aTime = moment(a.timeLabel, "h:mm A");
-    const bTime = moment(b.timeLabel, "h:mm A");
+    const aTime = moment(a.timeLabel, "h:mm:ss A");
+    const bTime = moment(b.timeLabel, "h:mm:ss A");
     return aTime - bTime;
   });
 
   return ordered;
 }
 
-// --- Build embeds with chunking + footer + last updated field
+// --- Build embeds with chunking
 function buildEmbeds(guild, groups) {
   const embeds = [];
   let current = new EmbedBuilder()
     .setTitle(`🕒 Local Time Graph for ${guild.name}`)
-    .setColor("#00AEEF")
-    .setDescription("Members grouped by their exact current local time.");
-  let currentSize = current.data.description.length + current.data.title.length;
+    .setColor("#00AEEF");
+  let currentSize = current.data.title.length;
 
   for (const group of groups) {
     const memberMentions = group.members.map(m => `<@${m.id}>`);
@@ -79,23 +77,6 @@ function buildEmbeds(guild, groups) {
   }
 
   if (current.data.fields?.length) embeds.push(current);
-
-  // ✅ Add footer + "Last updated" field to force redraw
-  if (embeds.length > 0) {
-    const now = moment();
-    const secondsAgo = Math.floor((Date.now() % 60000) / 1000);
-
-    // Update description to mimic "as of X seconds ago"
-    embeds[0].setDescription(
-      `Members grouped by their exact current local time.\n\n_as of ${secondsAgo} seconds ago_`
-    );
-
-    embeds[0].setFooter({ text: `Refreshed ${now.fromNow()}` });
-    embeds[0].addFields({
-      name: "⏱ Last updated",
-      value: now.format("h:mm:ss A")
-    });
-  }
 
   return embeds;
 }

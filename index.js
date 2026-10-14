@@ -23,10 +23,11 @@ for (const file of fs.readdirSync(commandsPath).filter((f) => f.endsWith(".js"))
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
   console.log("clientReady: starting refresh interval");
+
+  // Refresh every second for live ticking
   setInterval(() => {
-    console.log("DEBUG: refresh interval tick");
     refreshLiveGraph().catch((e) => console.error("Refresh loop top-level error:", e));
-  }, 60_000);
+  }, 1000);
 });
 
 // -------------------- Interaction handler --------------------
@@ -68,7 +69,6 @@ client.on("interactionCreate", async (interaction) => {
 async function refreshLiveGraph() {
   const livePath = path.join(__dirname, "data", "livegraph.json");
 
-  // Reload liveGraph from file if memory is empty
   if (!client.liveGraph && fs.existsSync(livePath)) {
     client.liveGraph = JSON.parse(fs.readFileSync(livePath, "utf8"));
   }
@@ -81,14 +81,12 @@ async function refreshLiveGraph() {
     const channel = await client.channels.fetch(client.liveGraph.channelId);
     const message = await channel.messages.fetch(client.liveGraph.messageId);
 
-    // Reload timezone DB fresh each tick
     const tzPath = path.join(__dirname, "data", "timezones.json");
     let db = {};
     if (fs.existsSync(tzPath)) {
       db = JSON.parse(fs.readFileSync(tzPath, "utf8"));
     }
 
-    // ✅ Rebuild groups fresh each refresh
     const groups = buildTimezoneGroups(message.guild, db);
     const embeds = buildEmbeds(message.guild, groups);
 
