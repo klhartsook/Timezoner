@@ -24,10 +24,10 @@ client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
   console.log("clientReady: starting refresh interval");
 
-  // Refresh every second for live ticking
+  // Refresh every minute for live ticking
   setInterval(() => {
     refreshLiveGraph().catch((e) => console.error("Refresh loop top-level error:", e));
-  }, 1000);
+  }, 60000);
 });
 
 // -------------------- Interaction handler --------------------
