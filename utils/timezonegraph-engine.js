@@ -1,7 +1,7 @@
 const moment = require("moment-timezone");
 const { EmbedBuilder } = require("discord.js");
 
-// --- Build groups based on exact local time (with seconds)
+// --- Build groups based on exact local time (minute precision)
 function buildTimezoneGroups(guild, db) {
   const groups = new Map();
 
@@ -10,7 +10,7 @@ function buildTimezoneGroups(guild, db) {
     if (!member) continue;
 
     const localTime = moment().tz(tz);
-    const timeLabel = localTime.format("h:mm:ss A"); // include seconds
+    const timeLabel = localTime.format("h:mm A"); // minutes only
 
     if (!groups.has(timeLabel)) {
       groups.set(timeLabel, {
@@ -23,8 +23,8 @@ function buildTimezoneGroups(guild, db) {
   }
 
   const ordered = [...groups.values()].sort((a, b) => {
-    const aTime = moment(a.timeLabel, "h:mm:ss A");
-    const bTime = moment(b.timeLabel, "h:mm:ss A");
+    const aTime = moment(a.timeLabel, "h:mm A");
+    const bTime = moment(b.timeLabel, "h:mm A");
     return aTime - bTime;
   });
 
@@ -37,15 +37,22 @@ function buildEmbeds(guild, groups) {
   let current = new EmbedBuilder()
     .setTitle(`🕒 Local Time Graph for ${guild.name}`)
     .setColor("#00AEEF");
+
   let currentSize = current.data.title.length;
 
   for (const group of groups) {
-    const memberMentions = group.members.map(m => `<@${m.id}>`);
+    const memberMentions = group.members.map(
+      (m) => `<@${m.id}>`
+    );
+
     const memberChunks = [];
     let chunk = "";
 
     for (const mention of memberMentions) {
-      const nextChunk = chunk ? `${chunk}, ${mention}` : mention;
+      const nextChunk = chunk
+        ? `${chunk}, ${mention}`
+        : mention;
+
       if (nextChunk.length > 1024) {
         memberChunks.push(chunk);
         chunk = mention;
@@ -53,6 +60,7 @@ function buildEmbeds(guild, groups) {
         chunk = nextChunk;
       }
     }
+
     if (chunk) memberChunks.push(chunk);
 
     for (let i = 0; i < memberChunks.length; i++) {
@@ -60,14 +68,20 @@ function buildEmbeds(guild, groups) {
         i === 0
           ? `${group.timeLabel} (${group.members.length})`
           : `${group.timeLabel} (continued)`;
+
       const value = memberChunks[i];
       const fieldSize = name.length + value.length;
 
-      if (current.data.fields?.length >= 25 || currentSize + fieldSize > 5500) {
+      if (
+        current.data.fields?.length >= 25 ||
+        currentSize + fieldSize > 5500
+      ) {
         embeds.push(current);
+
         current = new EmbedBuilder()
           .setTitle(`🕒 Local Time Graph for ${guild.name}`)
           .setColor("#00AEEF");
+
         currentSize = current.data.title.length;
       }
 
@@ -76,9 +90,14 @@ function buildEmbeds(guild, groups) {
     }
   }
 
-  if (current.data.fields?.length) embeds.push(current);
+  if (current.data.fields?.length) {
+    embeds.push(current);
+  }
 
   return embeds;
 }
 
-module.exports = { buildTimezoneGroups, buildEmbeds };
+module.exports = {
+  buildTimezoneGroups,
+  buildEmbeds
+};
