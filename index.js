@@ -1,6 +1,7 @@
 const { Client, Collection, GatewayIntentBits } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
+const https = require("https");
 
 console.log("=================================");
 console.log("TIMEZONER STARTING");
@@ -67,6 +68,23 @@ client.on("error", (err) => {
 client.on("shardError", (err) => {
   console.error("SHARD ERROR:");
   console.error(err);
+});
+
+client.on("ready", () => {
+  console.log("✅ READY EVENT FIRED");
+});
+
+client.on("shardReady", (id) => {
+  console.log(`✅ SHARD ${id} READY`);
+});
+
+client.on("shardDisconnect", (event, id) => {
+  console.log(`❌ SHARD ${id} DISCONNECTED`);
+  console.log(event);
+});
+
+client.on("invalidated", () => {
+  console.log("❌ SESSION INVALIDATED");
 });
 
 // -------------------- Load commands --------------------
@@ -240,6 +258,16 @@ if (!process.env.DISCORD_TOKEN) {
 
 console.log("✅ DISCORD_TOKEN found");
 console.log("Attempting Discord login...");
+
+// Test whether Railway can reach Discord
+https
+  .get("https://discord.com/api/v10/gateway", (res) => {
+    console.log("✅ Discord API status:", res.statusCode);
+  })
+  .on("error", (err) => {
+    console.error("❌ Discord API connection failed:");
+    console.error(err);
+  });
 
 client
   .login(process.env.DISCORD_TOKEN)
