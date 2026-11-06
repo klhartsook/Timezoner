@@ -18,6 +18,18 @@ process.on("unhandledRejection", (err) => {
   console.error(err);
 });
 
+process.on("exit", (code) => {
+  console.log(`Process exiting with code ${code}`);
+});
+
+process.on("SIGTERM", () => {
+  console.log("Received SIGTERM");
+});
+
+process.on("SIGINT", () => {
+  console.log("Received SIGINT");
+});
+
 let buildTimezoneGroups;
 let buildEmbeds;
 
@@ -36,6 +48,26 @@ const client = new Client({
 
 client.commands = new Collection();
 client.liveGraph = null;
+
+// -------------------- Discord Diagnostics --------------------
+
+client.on("debug", (msg) => {
+  console.log("DISCORD DEBUG:", msg);
+});
+
+client.on("warn", (msg) => {
+  console.warn("DISCORD WARNING:", msg);
+});
+
+client.on("error", (err) => {
+  console.error("DISCORD CLIENT ERROR:");
+  console.error(err);
+});
+
+client.on("shardError", (err) => {
+  console.error("SHARD ERROR:");
+  console.error(err);
+});
 
 // -------------------- Load commands --------------------
 
@@ -209,4 +241,12 @@ if (!process.env.DISCORD_TOKEN) {
 console.log("✅ DISCORD_TOKEN found");
 console.log("Attempting Discord login...");
 
-client.login(process.env.DISCORD_TOKEN);
+client
+  .login(process.env.DISCORD_TOKEN)
+  .then(() => {
+    console.log("✅ Login promise resolved");
+  })
+  .catch((err) => {
+    console.error("❌ Login failed");
+    console.error(err);
+  });
