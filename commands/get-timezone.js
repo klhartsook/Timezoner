@@ -1,12 +1,15 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
 const moment = require("moment-timezone");
 const fs = require("fs");
+const path = require("path");
 
-// Railway persistent timezone file
-const tzPath = "/data/timezones.json";
+// Use same file as set-timezone.js and live graph
+const tzPath = path.join(__dirname, "..", "data", "timezones.json");
+
+// Ensure data folder exists
+fs.mkdirSync(path.join(__dirname, "..", "data"), { recursive: true });
 
 // Ensure file exists
-fs.mkdirSync("/data", { recursive: true });
 if (!fs.existsSync(tzPath)) {
   fs.writeFileSync(tzPath, "{}");
 }
@@ -32,8 +35,8 @@ module.exports = {
 
     const user = interaction.options.getUser("user", true);
 
-    // Load timezone database
     let db = {};
+
     try {
       db = JSON.parse(fs.readFileSync(tzPath, "utf8"));
     } catch {
@@ -54,9 +57,14 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setTitle(`🕒 Timezone for ${user.username}`)
       .setDescription(`**${timezone}**\nLocal time: **${localTime}**`)
-      .addFields({ name: "IANA timezone", value: timezone })
+      .addFields({
+        name: "IANA timezone",
+        value: timezone
+      })
       .setColor("#00AEEF");
 
-    return interaction.reply({ embeds: [embed] });
+    return interaction.reply({
+      embeds: [embed]
+    });
   }
 };
