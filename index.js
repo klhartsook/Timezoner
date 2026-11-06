@@ -205,17 +205,20 @@ async function refreshLiveGraph() {
   }
 
   try {
-    const channel = await client.channels.fetch(
-      client.liveGraph.channelId
-    );
+  const channel = await client.channels.fetch(
+  client.liveGraph.channelId
+);
 
-    const message = await channel.messages.fetch(
-      client.liveGraph.messageId
-    );
+const message = await channel.messages.fetch(
+  client.liveGraph.messageId
+);
 
-    const tzPath = path.join(__dirname, "data", "timezones.json");
+// Populate member cache before building graph
+await message.guild.members.fetch();
 
-    let db = {};
+const tzPath = path.join(__dirname, "data", "timezones.json");
+
+let db = {};
 
     if (fs.existsSync(tzPath)) {
       db = JSON.parse(
