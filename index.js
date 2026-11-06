@@ -52,10 +52,6 @@ client.liveGraph = null;
 
 // -------------------- Discord Diagnostics --------------------
 
-client.on("debug", (msg) => {
-  console.log("DISCORD DEBUG:", msg);
-});
-
 client.on("warn", (msg) => {
   console.warn("DISCORD WARNING:", msg);
 });
